@@ -18,7 +18,7 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      className={cn("p-3 pointer-events-auto", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -63,7 +63,8 @@ function Calendar({
   );
 }
 
-function CustomCaption({ displayMonth, onMonthChange }: CaptionProps) {
+function CustomCaption(props: CaptionProps) {
+  const { displayMonth, actions } = props;
   const months = [
     "January", "February", "March", "April", "May", "June", 
     "July", "August", "September", "October", "November", "December"
@@ -77,13 +78,13 @@ function CustomCaption({ displayMonth, onMonthChange }: CaptionProps) {
     const newMonth = months.findIndex((month) => month === newMonthValue);
     const newDate = new Date(displayMonth);
     newDate.setMonth(newMonth);
-    onMonthChange(newDate);
+    actions.setMonth(newDate);
   };
 
   const handleYearChange = (newYearValue: string) => {
     const newDate = new Date(displayMonth);
     newDate.setFullYear(parseInt(newYearValue));
-    onMonthChange(newDate);
+    actions.setMonth(newDate);
   };
 
   return (
