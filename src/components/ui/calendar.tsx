@@ -74,20 +74,28 @@ function CustomCaption(props: CaptionProps) {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 121 }, (_, i) => currentYear - 100 + i);
 
-  // Access the DayPicker context using the useDayPicker hook
-  const { goToMonth } = useDayPicker();
+  // Access the DayPicker context
+  const dayPicker = useDayPicker();
 
   const handleMonthChange = (newMonthValue: string) => {
     const newMonth = months.findIndex((month) => month === newMonthValue);
     const newDate = new Date(displayMonth);
     newDate.setMonth(newMonth);
-    goToMonth(newDate);
+    
+    // Use the dayPicker's goToMonth function
+    if (dayPicker.onMonthChange) {
+      dayPicker.onMonthChange(newDate);
+    }
   };
 
   const handleYearChange = (newYearValue: string) => {
     const newDate = new Date(displayMonth);
     newDate.setFullYear(parseInt(newYearValue));
-    goToMonth(newDate);
+    
+    // Use the dayPicker's goToMonth function
+    if (dayPicker.onMonthChange) {
+      dayPicker.onMonthChange(newDate);
+    }
   };
 
   return (
