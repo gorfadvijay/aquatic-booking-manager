@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -8,7 +8,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -37,6 +36,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { createSlot, createSlotException } from "@/lib/api";
 
 const weekdays = [
   { id: "monday", label: "Monday" },
@@ -63,6 +63,7 @@ const formSchema = z.object({
 const CreateSlots = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -79,13 +80,73 @@ const CreateSlots = () => {
   const slotType = form.watch("slotType");
   const isHoliday = form.watch("isHoliday");
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    toast({
-      title: "Slots created successfully",
-      description: "The new slots have been added to your schedule.",
-    });
-    navigate("/admin/slots");
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      if (values.slotType === "weekly") {
+        // Create weekly recurring slots
+        const selectedDays = values.weekdays || [];
+        
+        // In a real app with authenticated users, this would use the current admin's ID
+        const adminId = "admin-user-id"; 
+        
+        // Create a slot for each selected day
+        for (const dayId of selectedDays) {
+          const day = weekdays.find(d => d.id === dayId);
+          if (day) {
+            await createSlot({
+              day_of_week: day.label,
+              start_time: values.isHoliday ? "" : values.startTime,
+              end_time: values.isHoliday ? "" : values.endTime,
+              is_holiday: values.isHoliday,
+              created_by: adminId
+            });
+          }
+        }
+      } else if (values.slotType === "specific" && values.startDate) {
+        // Create specific date exceptions
+        const adminId = "admin-user-id";
+        
+        // This is a simplified implementation for the mock database
+        // In a real app with proper slot IDs, you would get the slot for the day of week
+        // based on the specific date, and then create an exception for that slot
+        
+        // For the demo, we'll create a slot exception for the selected date(s)
+        if (values.startDate) {
+          const slotExceptionData = {
+            slot_id: "slot-id", // This would be a real slot ID in a real app
+            date: values.startDate.toISOString(),
+            new_start_time: values.isHoliday ? null : values.startTime,
+            new_end_time: values.isHoliday ? null : values.endTime,
+            is_holiday: values.isHoliday,
+            notes: values.holidayReason || (values.isHoliday ? "Holiday" : "Modified hours")
+          };
+          
+          await createSlotException(slotExceptionData);
+          
+          // If end date is provided, create exceptions for the date range
+          if (values.endDate && values.endDate > values.startDate) {
+            // In a real implementation, we would create exceptions for each date in the range
+            console.log("Would create exceptions for date range:", values.startDate, "to", values.endDate);
+          }
+        }
+      }
+
+      toast({
+        title: "Slots created successfully",
+        description: "The new slots have been added to your schedule.",
+      });
+      navigate("/admin/slots");
+    } catch (error) {
+      console.error("Error creating slots:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create slots. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -379,10 +440,13 @@ const CreateSlots = () => {
                   type="button"
                   variant="outline"
                   onClick={() => navigate("/admin/slots")}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Create Slots</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Creating..." : "Create Slots"}
+                </Button>
               </div>
             </form>
           </Form>

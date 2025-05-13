@@ -36,6 +36,7 @@ import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { registerUser, verifyOTP, resendOTP } from "@/lib/api";
 
 const formSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
@@ -65,7 +66,8 @@ const Registration = () => {
   const [step, setStep] = useState(1);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isOtpSent, setIsOtpSent] = useState(false);
-  const [otp, setOtp] = useState(["", "", "", ""]);
+  const [otp, setOtp] = useState<string[]>(["", "", "", ""]);
+  const [userEmail, setUserEmail] = useState<string>("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -112,31 +114,87 @@ const Registration = () => {
     }
   };
 
-  const sendVerificationCode = () => {
+  const sendVerificationCode = async () => {
     setIsVerifying(true);
-    setTimeout(() => {
-      setIsVerifying(false);
+    
+    try {
+      const formValues = form.getValues();
+      setUserEmail(formValues.email);
+      
+      // Register the user and get OTP
+      await registerUser({
+        name: `${formValues.firstName} ${formValues.lastName}`,
+        email: formValues.email,
+        phone: formValues.phone,
+        dob: formValues.dob.toISOString(),
+      });
+      
       setIsOtpSent(true);
       toast({
         title: "Verification code sent",
         description: "A verification code has been sent to your email and phone number.",
       });
-    }, 1500);
-  };
-
-  const verifyOtp = () => {
-    if (otp.join("") === "1234") {
+    } catch (error) {
       toast({
-        title: "Verification successful",
-        description: "Your email and phone have been verified.",
-      });
-      navigate("/customer/book");
-    } else {
-      toast({
-        title: "Invalid verification code",
-        description: "Please enter the correct code or request a new one.",
+        title: "Error",
+        description: "Failed to send verification code. Please try again.",
         variant: "destructive",
       });
+      console.error("Registration error:", error);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const verifyUserOtp = async () => {
+    const otpValue = otp.join("");
+    
+    // In a real app, this would verify the OTP with the backend
+    try {
+      const user = await verifyOTP(userEmail, otpValue);
+      
+      if (user) {
+        toast({
+          title: "Verification successful",
+          description: "Your email and phone have been verified.",
+        });
+        navigate("/customer/book");
+      } else {
+        toast({
+          title: "Invalid verification code",
+          description: "Please enter the correct code or request a new one.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Verification failed",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+      console.error("OTP verification error:", error);
+    }
+  };
+  
+  const handleResendOTP = async () => {
+    setIsVerifying(true);
+    
+    try {
+      await resendOTP(userEmail);
+      
+      toast({
+        title: "New verification code sent",
+        description: "A new verification code has been sent to your email and phone.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send new verification code.",
+        variant: "destructive",
+      });
+      console.error("Resend OTP error:", error);
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -286,6 +344,7 @@ const Registration = () => {
                                     date < new Date("1900-01-01")
                                   }
                                   initialFocus
+                                  className={cn("p-3 pointer-events-auto")}
                                 />
                               </PopoverContent>
                             </Popover>
@@ -535,7 +594,7 @@ const Registration = () => {
                 </div>
 
                 <Button
-                  onClick={verifyOtp}
+                  onClick={verifyUserOtp}
                   className="w-full"
                   disabled={otp.join("").length !== 4}
                 >
@@ -547,7 +606,7 @@ const Registration = () => {
                     Didn't receive a code?{" "}
                     <Button
                       variant="link"
-                      onClick={sendVerificationCode}
+                      onClick={handleResendOTP}
                       disabled={isVerifying}
                       className="p-0 h-auto font-normal"
                     >
