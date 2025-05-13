@@ -83,8 +83,10 @@ function CustomCaption(props: CaptionProps) {
     newDate.setMonth(newMonth);
     
     if (dayPicker && dayPicker.toMonth) {
+      // Call toMonth with the date object directly
       dayPicker.toMonth(newDate);
     } else if (dayPicker && dayPicker.onMonthChange) {
+      // Call onMonthChange with the date object directly
       dayPicker.onMonthChange(newDate);
     }
   };
@@ -94,8 +96,10 @@ function CustomCaption(props: CaptionProps) {
     newDate.setFullYear(parseInt(newYearValue));
     
     if (dayPicker && dayPicker.toMonth) {
+      // Call toMonth with the date object directly
       dayPicker.toMonth(newDate);
     } else if (dayPicker && dayPicker.onMonthChange) {
+      // Call onMonthChange with the date object directly
       dayPicker.onMonthChange(newDate);
     }
   };
