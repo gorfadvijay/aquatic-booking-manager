@@ -64,7 +64,7 @@ function Calendar({
 }
 
 function CustomCaption(props: CaptionProps) {
-  const { displayMonth, goToMonth } = props;
+  const { displayMonth } = props;
   const months = [
     "January", "February", "March", "April", "May", "June", 
     "July", "August", "September", "October", "November", "December"
@@ -74,17 +74,20 @@ function CustomCaption(props: CaptionProps) {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 121 }, (_, i) => currentYear - 100 + i);
 
+  // Access the DayPicker context to get the navigation functions
+  const dayPicker = React.useContext(DayPicker.Context);
+
   const handleMonthChange = (newMonthValue: string) => {
     const newMonth = months.findIndex((month) => month === newMonthValue);
     const newDate = new Date(displayMonth);
     newDate.setMonth(newMonth);
-    goToMonth(newDate);
+    dayPicker.currentMonth.set(newDate);
   };
 
   const handleYearChange = (newYearValue: string) => {
     const newDate = new Date(displayMonth);
     newDate.setFullYear(parseInt(newYearValue));
-    goToMonth(newDate);
+    dayPicker.currentMonth.set(newDate);
   };
 
   return (
