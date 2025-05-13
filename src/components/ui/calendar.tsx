@@ -1,7 +1,7 @@
 
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker, CaptionProps } from "react-day-picker";
+import { DayPicker, CaptionProps, useDayPicker } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -74,20 +74,20 @@ function CustomCaption(props: CaptionProps) {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 121 }, (_, i) => currentYear - 100 + i);
 
-  // Access the DayPicker context to get the navigation functions
-  const dayPicker = React.useContext(DayPicker.Context);
+  // Access the DayPicker context using the useDayPicker hook
+  const { goToMonth } = useDayPicker();
 
   const handleMonthChange = (newMonthValue: string) => {
     const newMonth = months.findIndex((month) => month === newMonthValue);
     const newDate = new Date(displayMonth);
     newDate.setMonth(newMonth);
-    dayPicker.currentMonth.set(newDate);
+    goToMonth(newDate);
   };
 
   const handleYearChange = (newYearValue: string) => {
     const newDate = new Date(displayMonth);
     newDate.setFullYear(parseInt(newYearValue));
-    dayPicker.currentMonth.set(newDate);
+    goToMonth(newDate);
   };
 
   return (
