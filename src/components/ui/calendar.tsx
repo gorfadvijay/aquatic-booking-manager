@@ -64,7 +64,7 @@ function Calendar({
 }
 
 function CustomCaption(props: CaptionProps) {
-  const { displayMonth, actions } = props;
+  const { displayMonth, onMonthChange } = props;
   const months = [
     "January", "February", "March", "April", "May", "June", 
     "July", "August", "September", "October", "November", "December"
@@ -78,13 +78,13 @@ function CustomCaption(props: CaptionProps) {
     const newMonth = months.findIndex((month) => month === newMonthValue);
     const newDate = new Date(displayMonth);
     newDate.setMonth(newMonth);
-    actions.setMonth(newDate);
+    onMonthChange(newDate);
   };
 
   const handleYearChange = (newYearValue: string) => {
     const newDate = new Date(displayMonth);
     newDate.setFullYear(parseInt(newYearValue));
-    actions.setMonth(newDate);
+    onMonthChange(newDate);
   };
 
   return (
