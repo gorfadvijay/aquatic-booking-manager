@@ -9,7 +9,8 @@ import {
   Payment, 
   Invoice, 
   Notification,
-  UUID
+  UUID,
+  BookingStatus
 } from '@/types/schema';
 
 // Mock storage
