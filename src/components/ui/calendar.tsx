@@ -82,8 +82,8 @@ function CustomCaption(props: CaptionProps) {
     const newDate = new Date(displayMonth);
     newDate.setMonth(newMonth);
     
-    if (dayPicker && dayPicker.goToMonth) {
-      dayPicker.goToMonth(newDate);
+    if (dayPicker && dayPicker.toMonth) {
+      dayPicker.toMonth(newDate);
     } else if (dayPicker && dayPicker.onMonthChange) {
       dayPicker.onMonthChange(newDate);
     }
@@ -93,8 +93,8 @@ function CustomCaption(props: CaptionProps) {
     const newDate = new Date(displayMonth);
     newDate.setFullYear(parseInt(newYearValue));
     
-    if (dayPicker && dayPicker.goToMonth) {
-      dayPicker.goToMonth(newDate);
+    if (dayPicker && dayPicker.toMonth) {
+      dayPicker.toMonth(newDate);
     } else if (dayPicker && dayPicker.onMonthChange) {
       dayPicker.onMonthChange(newDate);
     }
