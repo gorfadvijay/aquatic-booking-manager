@@ -1,4 +1,5 @@
 
+
 /**
  * Database schema type definitions for the Swim Slot Booking System
  */
@@ -87,6 +88,7 @@ export type Notification = {
   channel: NotificationChannel;
   type: NotificationType;
   message: string;
-  status: NotificationStatus;
-  sent_at: Date | string;
+  status?: NotificationStatus;
+  sent_at?: Date | string;
 };
+

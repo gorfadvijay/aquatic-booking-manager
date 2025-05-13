@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +44,14 @@ import { Calendar, Users } from "lucide-react";
 import { getSlotById, updateSlot } from "@/lib/api";
 import { Slot, Booking } from "@/types/schema";
 
+// Import the modified EnrichedBooking interface to handle the additional properties
+interface EnrichedBooking extends Booking {
+  customerName?: string;
+  email?: string;
+  phone?: string;
+  age?: number;
+}
+
 const formSchema = z.object({
   dayName: z.string().min(1, "Day name is required"),
   startTime: z.string().min(1, "Start time is required"),
@@ -60,7 +67,7 @@ const EditSlots = () => {
   const { toast } = useToast();
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [slot, setSlot] = useState<Slot | null>(null);
-  const [conflictingBookings, setConflictingBookings] = useState<Booking[]>([]);
+  const [conflicts, setConflicts] = useState<EnrichedBooking[]>([]);
   const [loading, setLoading] = useState(true);
 
   const dayLookup: Record<string, string> = {
@@ -242,7 +249,7 @@ const EditSlots = () => {
   function handleSubmit(values: z.infer<typeof formSchema>) {
     // Check for conflicts with existing bookings
     // In a real app, this would check for actual conflicts
-    setConflictingBookings(mockConflictingBookings);
+    setConflicts(mockConflictingBookings);
     
     if (mockConflictingBookings.length > 0) {
       setShowConflictDialog(true);
@@ -286,7 +293,7 @@ const EditSlots = () => {
     // Logic to send notifications to affected customers would go here
     toast({
       title: "Notifications sent",
-      description: `${conflictingBookings.length} customers have been notified about the schedule change.`,
+      description: `${conflicts.length} customers have been notified about the schedule change.`,
     });
     
     // Then save the changes
@@ -443,16 +450,16 @@ const EditSlots = () => {
             </h3>
             
             <div className="space-y-3">
-              {conflictingBookings.map((booking) => (
+              {conflicts.map((booking) => (
                 <div key={booking.id} className="bg-background p-3 rounded-md border">
-                  <div className="font-medium">{booking.customerName}</div>
+                  <div className="font-medium">{booking.customerName || "Unknown"}</div>
                   <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> 
-                      {booking.booking_date}, {booking.start_time}
+                      {booking.booking_date ? String(booking.booking_date) : ""}
                     </span>
-                    <span>{booking.email}</span>
-                    <span>{booking.phone}</span>
+                    <span>{booking.email || "No email"}</span>
+                    <span>{booking.phone || "No phone"}</span>
                   </div>
                 </div>
               ))}

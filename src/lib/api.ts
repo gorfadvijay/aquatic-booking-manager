@@ -21,8 +21,20 @@ import type {
   Notification,
   UUID,
   NotificationChannel,
-  NotificationType
+  NotificationType,
+  BookingStatus
 } from '@/types/schema';
+
+// Export the services so they can be used directly
+export {
+  UserService,
+  SlotService,
+  SlotExceptionService,
+  BookingService,
+  PaymentService,
+  InvoiceService,
+  NotificationService
+};
 
 // ===== User APIs =====
 

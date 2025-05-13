@@ -43,9 +43,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { getBookingsByDate, cancelBooking, rescheduleBooking, sendNotification, getAllBookings, UserService } from "@/lib/api";
+import { 
+  getBookingsByDate, 
+  cancelBooking, 
+  rescheduleBooking, 
+  sendNotification, 
+  getAllBookings, 
+  UserService 
+} from "@/lib/api";
 import { Booking } from "@/types/schema";
 import { format, addDays, subDays, parseISO } from "date-fns";
+
+interface EnrichedBooking extends Booking {
+  customerName?: string;
+  email?: string;
+  phone?: string;
+  age?: number;
+}
 
 const ViewBookings = () => {
   const { toast } = useToast();
@@ -53,7 +67,7 @@ const ViewBookings = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
   const [rescheduleBookingId, setRescheduleBookingId] = useState<string | null>(null);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [rescheduledDate, setRescheduledDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
   const [rescheduledTime, setRescheduledTime] = useState<string>("9:00");
