@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,7 +35,8 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { createSlot, createSlotException } from "@/lib/api";
+import { createSlot, createSlotException } from "@/lib/db";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const weekdays = [
   { id: "monday", label: "Monday" },

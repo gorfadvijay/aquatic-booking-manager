@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -30,7 +29,7 @@ import {
 } from "recharts";
 import { Download, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { generateBookingReport, generateRevenueReport } from "@/lib/api";
+import { generateBookingReport, generateRevenueReport } from "@/lib/db";
 import { format, subDays, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 
 const COLORS = ["#0284c7", "#ef4444", "#f59e0b", "#10b981"];

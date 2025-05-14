@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -44,13 +43,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  getBookingsByDate, 
-  cancelBooking, 
-  rescheduleBooking, 
-  sendNotification, 
+  UserService, 
   getAllBookings, 
-  UserService 
-} from "@/lib/api";
+  getBookingsByDate, 
+  getUserBookings, 
+  cancelBooking,
+  rescheduleBooking,
+  SlotService,
+  sendNotification
+} from "@/lib/db";
 import { Booking } from "@/types/schema";
 import { format, addDays, subDays, parseISO } from "date-fns";
 

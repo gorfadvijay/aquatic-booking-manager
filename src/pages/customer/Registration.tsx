@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -36,8 +35,34 @@ import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { registerUser, verifyOTP, resendOTP } from "@/lib/api";
+import { registerUser, verifyOTP, resendOTP } from "@/lib/db";
 
+const step1Schema = z.object({
+  firstName: z.string().min(2, { message: "First name is required" }),
+  lastName: z.string().min(2, { message: "Last name is required" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  phone: z.string().min(10, { message: "Phone number must be at least 10 digits" }),
+  dob: z.date({
+    required_error: "Date of birth is required",
+  }),
+  gender: z.enum(["male", "female", "other"], {
+    required_error: "Please select a gender",
+  }),
+  swimmingExperience: z.enum(["beginner", "intermediate", "advanced"], {
+    required_error: "Please select your swimming experience level",
+  }),
+});
+
+const step2Schema = z.object({
+  address: z.string().min(1, { message: "Address is required" }),
+  city: z.string().min(1, { message: "City is required" }),
+  state: z.string().min(1, { message: "State is required" }),
+  zipCode: z.string().min(1, { message: "Zip code is required" }),
+  emergencyContactName: z.string().min(1, { message: "Emergency contact name is required" }),
+  emergencyContactPhone: z.string().min(10, { message: "Emergency contact phone must be at least 10 digits" }),
+});
+
+// Combined schema for all fields
 const formSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
   lastName: z.string().min(2, { message: "Last name is required" }),
@@ -69,8 +94,9 @@ const Registration = () => {
   const [otp, setOtp] = useState<string[]>(["", "", "", ""]);
   const [userEmail, setUserEmail] = useState<string>("");
 
+  // Use the appropriate schema based on the current step
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(step === 1 ? step1Schema : step2Schema),
     defaultValues: {
       firstName: "",
       lastName: "",
@@ -84,7 +110,17 @@ const Registration = () => {
       emergencyContactPhone: "",
       swimmingExperience: "beginner",
     },
+    mode: "onChange"
   });
+
+  // Update form resolver when step changes
+  React.useEffect(() => {
+    form.clearErrors();
+    // Reset with the proper resolver without trying to set it directly
+    form.reset(undefined, {
+      keepValues: true
+    });
+  }, [step, form]);
 
   const handleOtpChange = (index: number, value: string) => {
     // Only allow digits
@@ -201,8 +237,10 @@ const Registration = () => {
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
     if (step === 1) {
+      // Successfully validated step 1, move to step 2
       setStep(2);
     } else {
+      // Successfully validated step 2, proceed with verification
       sendVerificationCode();
     }
   }
@@ -309,7 +347,8 @@ const Registration = () => {
                       <FormField
                         control={form.control}
                         name="dob"
-                        render={({ field }) => (
+                        render={({ field }) => {
+                          return (
                           <FormItem className="flex flex-col">
                             <FormLabel>Date of Birth</FormLabel>
                             <Popover>
@@ -323,7 +362,7 @@ const Registration = () => {
                                     )}
                                   >
                                     {field.value ? (
-                                      format(field.value, "PPP")
+                                      format(field.value, "MMMM do, yyyy")
                                     ) : (
                                       <span>Pick a date</span>
                                     )}
@@ -332,25 +371,88 @@ const Registration = () => {
                                 </FormControl>
                               </PopoverTrigger>
                               <PopoverContent
-                                className="w-auto p-0"
+                                className="w-auto p-3"
                                 align="start"
                               >
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date) =>
-                                    date > new Date() ||
-                                    date < new Date("1900-01-01")
-                                  }
-                                  initialFocus
-                                  className={cn("p-3 pointer-events-auto")}
-                                />
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Select
+                                      value={field.value ? format(field.value, 'MMMM') : format(new Date(), 'MMMM')}
+                                      onValueChange={(month) => {
+                                        const date = field.value || new Date();
+                                        const newDate = new Date(date);
+                                        const monthIndex = [
+                                          "January", "February", "March", "April", "May", "June",
+                                          "July", "August", "September", "October", "November", "December"
+                                        ].indexOf(month);
+                                        newDate.setMonth(monthIndex);
+                                        field.onChange(newDate);
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Month" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="January">January</SelectItem>
+                                        <SelectItem value="February">February</SelectItem>
+                                        <SelectItem value="March">March</SelectItem>
+                                        <SelectItem value="April">April</SelectItem>
+                                        <SelectItem value="May">May</SelectItem>
+                                        <SelectItem value="June">June</SelectItem>
+                                        <SelectItem value="July">July</SelectItem>
+                                        <SelectItem value="August">August</SelectItem>
+                                        <SelectItem value="September">September</SelectItem>
+                                        <SelectItem value="October">October</SelectItem>
+                                        <SelectItem value="November">November</SelectItem>
+                                        <SelectItem value="December">December</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Select
+                                      value={field.value ? format(field.value, 'yyyy') : format(new Date(), 'yyyy')}
+                                      onValueChange={(year) => {
+                                        const date = field.value || new Date();
+                                        const newDate = new Date(date);
+                                        newDate.setFullYear(parseInt(year));
+                                        field.onChange(newDate);
+                                      }}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Year" />
+                                      </SelectTrigger>
+                                      <SelectContent className="h-[200px]">
+                                        {Array.from({ length: 100 }, (_, i) => (
+                                          <SelectItem
+                                            key={i}
+                                            value={(new Date().getFullYear() - 100 + i).toString()}
+                                          >
+                                            {new Date().getFullYear() - 100 + i}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={(date) => date && field.onChange(date)}
+                                    disabled={(date) =>
+                                      date > new Date() ||
+                                      date < new Date("1900-01-01")
+                                    }
+                                    initialFocus
+                                    className="rounded-md border"
+                                    classNames={{
+                                      caption: "hidden",
+                                      nav: "hidden"
+                                    }}
+                                  />
+                                </div>
                               </PopoverContent>
                             </Popover>
                             <FormMessage />
                           </FormItem>
-                        )}
+                          )
+                        }}
                       />
 
                       <FormField
@@ -620,6 +722,23 @@ const Registration = () => {
                       )}
                     </Button>
                   </p>
+                  {process.env.NODE_ENV !== 'production' && (
+                    <p className="text-muted-foreground mt-2">
+                      <span className="text-xs bg-yellow-50 text-yellow-800 px-2 py-1 rounded">
+                        Dev mode: Use test OTP code "8452"
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs ml-2"
+                        onClick={() => {
+                          setOtp(['8', '4', '5', '2']);
+                        }}
+                      >
+                        Fill Test OTP
+                      </Button>
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>

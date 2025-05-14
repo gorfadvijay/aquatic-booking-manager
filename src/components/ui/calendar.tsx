@@ -1,11 +1,9 @@
-
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker, CaptionProps, useDayPicker } from "react-day-picker";
+import { DayPicker } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
@@ -23,7 +21,7 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium hidden", // Hide default caption label
+        caption_label: "text-sm font-medium",
         nav: "space-x-1 flex items-center",
         nav_button: cn(
           buttonVariants({ variant: "outline" }),
@@ -56,88 +54,9 @@ function Calendar({
       components={{
         IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
         IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
-        Caption: (props) => <CustomCaption {...props} />
       }}
       {...props}
     />
-  );
-}
-
-function CustomCaption(props: CaptionProps) {
-  const { displayMonth } = props;
-  const months = [
-    "January", "February", "March", "April", "May", "June", 
-    "July", "August", "September", "October", "November", "December"
-  ];
-
-  // Get current year and a reasonable range of years (e.g., 100 years in the past)
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 121 }, (_, i) => currentYear - 100 + i);
-
-  // Access the DayPicker context
-  const dayPicker = useDayPicker();
-
-  const handleMonthChange = (newMonthValue: string) => {
-    const newMonth = months.findIndex((month) => month === newMonthValue);
-    const newDate = new Date(displayMonth);
-    newDate.setMonth(newMonth);
-    
-    if (dayPicker && dayPicker.toMonth) {
-      // Call toMonth with the date object directly
-      dayPicker.toMonth(newDate);
-    } else if (dayPicker && dayPicker.onMonthChange) {
-      // Call onMonthChange with the date object directly
-      dayPicker.onMonthChange(newDate);
-    }
-  };
-
-  const handleYearChange = (newYearValue: string) => {
-    const newDate = new Date(displayMonth);
-    newDate.setFullYear(parseInt(newYearValue));
-    
-    if (dayPicker && dayPicker.toMonth) {
-      // Call toMonth with the date object directly
-      dayPicker.toMonth(newDate);
-    } else if (dayPicker && dayPicker.onMonthChange) {
-      // Call onMonthChange with the date object directly
-      dayPicker.onMonthChange(newDate);
-    }
-  };
-
-  return (
-    <div className="flex justify-center items-center space-x-2 px-8 py-1">
-      <Select 
-        value={months[displayMonth.getMonth()]} 
-        onValueChange={handleMonthChange}
-      >
-        <SelectTrigger className="h-8 w-[110px]">
-          <SelectValue placeholder="Month" />
-        </SelectTrigger>
-        <SelectContent>
-          {months.map((month) => (
-            <SelectItem key={month} value={month}>
-              {month}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      
-      <Select 
-        value={displayMonth.getFullYear().toString()} 
-        onValueChange={handleYearChange}
-      >
-        <SelectTrigger className="h-8 w-[90px]">
-          <SelectValue placeholder="Year" />
-        </SelectTrigger>
-        <SelectContent>
-          {years.map((year) => (
-            <SelectItem key={year} value={year.toString()}>
-              {year}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
   );
 }
 

@@ -41,8 +41,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Calendar, Users } from "lucide-react";
-import { getSlotById, updateSlot } from "@/lib/api";
+import { getSlotById, updateSlot } from "@/lib/db";
 import { Slot, Booking } from "@/types/schema";
+import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 // Import the modified EnrichedBooking interface to handle the additional properties
 interface EnrichedBooking extends Booking {
