@@ -1,41 +1,137 @@
 import { User, UUID } from '@/types/schema';
-import { storage, timestamp, generateId } from './storage';
+import { supabase } from '../supabase';
 
 export const UserService = {
-  create: (user: Omit<User, 'id' | 'created_at'>): User => {
-    const id = generateId();
-    const newUser: User = {
-      ...user,
-      id,
-      created_at: timestamp()
-    };
-    storage.users.set(id, newUser);
-    return newUser;
+  create: async (user: Omit<User, 'id' | 'created_at'>): Promise<User> => {
+    try {
+      console.log('Creating user in Supabase:', user);
+      
+      // First insert the user with minimal required fields
+      const { data, error } = await supabase
+        .from('users')
+        .insert([{ 
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          dob: user.dob,
+          password: user.password,
+          is_admin: user.is_admin || false,
+          is_verified: user.is_verified || false,
+          otp_code: user.otp_code
+        }])
+        .select();
+      
+      if (error) {
+        console.error('Failed to insert user:', error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        console.error('User created but no data returned');
+        throw new Error('User created but no data returned');
+      }
+      
+      const createdUser = data[0] as User;
+      
+      // Update with additional fields
+      if (user.gender || user.swimming_experience || user.address) {
+        const additionalFields: Record<string, any> = {};
+        
+        if (user.otp_expiry) additionalFields.otp_expiry = user.otp_expiry;
+        if (user.gender) additionalFields.gender = user.gender;
+        if (user.swimming_experience) additionalFields.swimming_experience = user.swimming_experience;
+        if (user.address) additionalFields.address = user.address;
+        if (user.city) additionalFields.city = user.city;
+        if (user.state) additionalFields.state = user.state;
+        if (user.zip_code) additionalFields.zip_code = user.zip_code;
+        if (user.emergency_contact_name) additionalFields.emergency_contact_name = user.emergency_contact_name;
+        if (user.emergency_contact_phone) additionalFields.emergency_contact_phone = user.emergency_contact_phone;
+        
+        const { error: updateError } = await supabase
+          .from('users')
+          .update(additionalFields)
+          .eq('id', createdUser.id);
+          
+        if (updateError) {
+          console.warn('Failed to update user with additional fields:', updateError);
+          // Continue anyway as the basic user was created
+        }
+      }
+      
+      return createdUser;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
   },
 
-  getById: (id: UUID): User | undefined => {
-    return storage.users.get(id);
+  getById: async (id: UUID): Promise<User | undefined> => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      return data as User;
+    } catch (error) {
+      console.error('Error getting user by ID:', error);
+      return undefined;
+    }
   },
 
-  getByEmail: (email: string): User | undefined => {
-    return Array.from(storage.users.values()).find(user => user.email === email);
+  getByEmail: async (email: string): Promise<User | undefined> => {
+    try {
+      console.log(`Looking for user with email: ${email}`);
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email);
+      
+      if (error) throw error;
+      
+      // Return the first matching user or undefined if no user found
+      return data && data.length > 0 ? data[0] as User : undefined;
+    } catch (error) {
+      console.error('Error getting user by email:', error);
+      return undefined;
+    }
   },
 
-  update: (id: UUID, data: Partial<User>): User | undefined => {
-    const user = storage.users.get(id);
-    if (!user) return undefined;
-    
-    const updatedUser = { ...user, ...data };
-    storage.users.set(id, updatedUser);
-    return updatedUser;
+  update: async (id: UUID, data: Partial<User>): Promise<User | undefined> => {
+    try {
+      const { data: updatedData, error } = await supabase
+        .from('users')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return updatedData as User;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return undefined;
+    }
   },
 
-  delete: (id: UUID): boolean => {
-    return storage.users.delete(id);
+  delete: async (id: UUID): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+      
+      return !error;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
   },
 
-  verifyOTP: (email: string, otp: string): boolean => {
-    const user = Array.from(storage.users.values()).find(user => user.email === email);
+  verifyOTP: async (email: string, otp: string): Promise<boolean> => {
+    const user = await UserService.getByEmail(email);
     
     if (!user || !user.otp_code || user.otp_code !== otp) {
       return false;
@@ -47,8 +143,7 @@ export const UserService = {
     }
     
     // Mark user as verified and clear OTP
-    storage.users.set(user.id, {
-      ...user,
+    await UserService.update(user.id, {
       is_verified: true,
       otp_code: null,
       otp_expiry: null
@@ -57,7 +152,17 @@ export const UserService = {
     return true;
   },
   
-  getAll: (): User[] => {
-    return Array.from(storage.users.values());
+  getAll: async (): Promise<User[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*');
+      
+      if (error) throw error;
+      return data as User[];
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      return [];
+    }
   }
 }; 

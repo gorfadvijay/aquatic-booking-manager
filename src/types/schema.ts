@@ -1,5 +1,3 @@
-
-
 /**
  * Database schema type definitions for the Swim Slot Booking System
  */
@@ -17,26 +15,26 @@ export type User = {
   otp_code: string | null;
   otp_expiry: Date | string | null;
   created_at: Date | string;
+  password?: string;
+  gender?: 'male' | 'female' | 'other';
+  swimming_experience?: 'beginner' | 'intermediate' | 'advanced';
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
 };
 
 export type Slot = {
   id: UUID;
-  day_of_week: string;
   start_time: string; // Format: "HH:MM"
   end_time: string; // Format: "HH:MM"
   is_holiday: boolean;
-  created_by: UUID;
   created_at: Date | string;
-};
-
-export type SlotException = {
-  id: UUID;
-  slot_id: UUID;
-  date: Date | string;
-  new_start_time: string | null; // Format: "HH:MM"
-  new_end_time: string | null; // Format: "HH:MM"
-  is_holiday: boolean;
-  notes: string;
+  start_date: Date | string;
+  end_date?: Date | string;
+  slot_duration: number;
 };
 
 export type BookingStatus = 'booked' | 'cancelled' | 'completed' | 'rescheduled';

@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Card,
@@ -10,11 +9,11 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Loader2, Clock } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, addDays } from "date-fns";
+import { format, addDays, isSameDay, parseISO } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -26,54 +25,98 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { getAllSlots } from "@/lib/db";
+import { Slot, Booking } from "@/types/schema";
 
-// Mock time slots
-const timeSlots = [
-  { id: 1, time: "9:00 AM - 10:00 AM", available: true },
-  { id: 2, time: "10:00 AM - 11:00 AM", available: false },
-  { id: 3, time: "11:00 AM - 12:00 PM", available: true },
-  { id: 4, time: "12:00 PM - 1:00 PM", available: true },
-  { id: 5, time: "1:00 PM - 2:00 PM", available: false },
-  { id: 6, time: "2:00 PM - 3:00 PM", available: true },
-  { id: 7, time: "3:00 PM - 4:00 PM", available: true },
-  { id: 8, time: "4:00 PM - 5:00 PM", available: false },
-];
+// Interface for day slot info
+interface DaySlotInfo {
+  date: Date;
+  slot: Slot | null;
+  isAvailable: boolean;
+}
 
 const BookAnalysisSlot = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<number | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [consecutiveDaysInfo, setConsecutiveDaysInfo] = useState<DaySlotInfo[]>([]);
+  const [allDaysAvailable, setAllDaysAvailable] = useState(false);
+
+  // Fetch all slots when component mounts
+  useEffect(() => {
+    const fetchSlots = async () => {
+      try {
+        const fetchedSlots = await getAllSlots();
+        setSlots(fetchedSlots.filter(slot => !slot.is_holiday));
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to fetch slots:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch available slots",
+          variant: "destructive",
+        });
+        setLoading(false);
+      }
+    };
+
+    fetchSlots();
+  }, [toast]);
+
+  // Update consecutive days info when date or slots change
+  useEffect(() => {
+    if (!date || !slots.length) {
+      setConsecutiveDaysInfo([]);
+      setAllDaysAvailable(false);
+      return;
+    }
+
+    // Get the three consecutive days
+    const threeDays = [
+      date,
+      addDays(date, 1),
+      addDays(date, 2)
+    ];
+
+    // Check availability for each day
+    const daysInfo = threeDays.map(day => {
+      const slot = slots.find(s => 
+        s.start_date && isSameDay(new Date(s.start_date), day)
+      );
+      
+      // For demo purposes, randomly determine if a slot is available
+      // In a real app, this would check against existing bookings
+      const isAvailable = slot ? Math.random() > 0.3 : false; // 70% chance of being available if slot exists
+      
+      return {
+        date: day,
+        slot,
+        isAvailable: slot ? isAvailable : false
+      };
+    });
+
+    setConsecutiveDaysInfo(daysInfo);
+    // All days are available only if each day has a slot and is available
+    setAllDaysAvailable(daysInfo.every(day => day.slot && day.isAvailable));
+  }, [date, slots]);
 
   // Format the date for display
   const formattedDate = date ? format(date, "EEEE, MMMM d, yyyy") : "";
 
-  // Calculate the consecutive days
-  const consecutiveDays = date
-    ? [date, addDays(date, 1), addDays(date, 2)]
-    : [];
-
-  const formattedConsecutiveDays = consecutiveDays.map((d) =>
-    format(d, "EEE, MMM d")
-  );
-
   const handleDateChange = (newDate: Date | undefined) => {
     setDate(newDate);
-    setSelectedTimeSlot(null); // Reset selected time slot when date changes
-  };
-
-  const handleTimeSlotSelection = (slotId: number) => {
-    setSelectedTimeSlot(slotId);
   };
 
   const handleContinue = () => {
-    if (selectedTimeSlot !== null) {
+    if (allDaysAvailable) {
       setShowConfirmDialog(true);
     } else {
       toast({
-        title: "No time slot selected",
-        description: "Please select a time slot to continue.",
+        title: "Not all days available",
+        description: "Please select a date where all three consecutive days have available slots.",
         variant: "destructive",
       });
     }
@@ -81,6 +124,25 @@ const BookAnalysisSlot = () => {
 
   const handleConfirmBooking = () => {
     navigate("/customer/payment");
+  };
+
+  // Filter out dates that don't have slots for the calendar
+  const disabledDates = (date: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Disable past dates
+    if (date < today) return true;
+    
+    // Check if slots exist for this date and the next two days
+    const hasSlots = [0, 1, 2].every(offset => {
+      const checkDate = addDays(date, offset);
+      return slots.some(slot => 
+        slot.start_date && isSameDay(new Date(slot.start_date), checkDate)
+      );
+    });
+    
+    return !hasSlots;
   };
 
   return (
@@ -96,7 +158,7 @@ const BookAnalysisSlot = () => {
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="shadow-md">
             <CardHeader>
-              <CardTitle>Select Date</CardTitle>
+              <CardTitle>Select Start Date</CardTitle>
               <CardDescription>
                 Choose the starting date for your 3-day analysis
               </CardDescription>
@@ -117,18 +179,21 @@ const BookAnalysisSlot = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={handleDateChange}
-                      disabled={(date) => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        return date < today;
-                      }}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
+                    {loading ? (
+                      <div className="p-4 flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        <span>Loading available dates...</span>
+                      </div>
+                    ) : (
+                      <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={handleDateChange}
+                        disabled={disabledDates}
+                        initialFocus
+                        className={cn("p-3 pointer-events-auto")}
+                      />
+                    )}
                   </PopoverContent>
                 </Popover>
               </div>
@@ -136,22 +201,42 @@ const BookAnalysisSlot = () => {
               <div className="space-y-4">
                 <Label>Your 3-Day Analysis Schedule</Label>
                 <div className="grid gap-2">
-                  {formattedConsecutiveDays.map((day, index) => (
+                  {consecutiveDaysInfo.map((dayInfo, index) => (
                     <div
                       key={index}
-                      className="flex items-center p-3 border border-border rounded-lg bg-background"
+                      className={cn(
+                        "flex items-center p-3 border rounded-lg",
+                        dayInfo.isAvailable ? "bg-background" : "bg-gray-50 border-gray-200"
+                      )}
                     >
-                      <div className="h-8 w-8 bg-primary/10 text-primary rounded-full flex items-center justify-center mr-3">
+                      <div className={cn(
+                        "h-8 w-8 rounded-full flex items-center justify-center mr-3",
+                        dayInfo.isAvailable ? "bg-primary/10 text-primary" : "bg-gray-200 text-gray-500"
+                      )}>
                         <span className="text-sm font-medium">
                           {index + 1}
                         </span>
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <div className="font-medium">Day {index + 1}</div>
                         <div className="text-sm text-muted-foreground">
-                          {day}
+                          {format(dayInfo.date, "EEE, MMM d")}
                         </div>
                       </div>
+                      {dayInfo.slot && (
+                        <div className={cn(
+                          "text-xs px-2 py-1 rounded flex items-center",
+                          dayInfo.isAvailable ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        )}>
+                          <Clock className="h-3 w-3 mr-1" />
+                          {dayInfo.isAvailable ? "Available" : "Booked"}
+                        </div>
+                      )}
+                      {!dayInfo.slot && (
+                        <div className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-800">
+                          No Slot
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -161,94 +246,79 @@ const BookAnalysisSlot = () => {
 
           <Card className="shadow-md">
             <CardHeader>
-              <CardTitle>Select Time Slot</CardTitle>
+              <CardTitle>Slot Information</CardTitle>
               <CardDescription>
-                Choose a time slot for all 3 days
+                Booking details for all three days
               </CardDescription>
             </CardHeader>
             <CardContent>
               {!date ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Please select a date first
+                  Please select a start date first
+                </div>
+              ) : loading ? (
+                <div className="py-8 text-center flex justify-center items-center">
+                  <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                  <span>Loading slot information...</span>
+                </div>
+              ) : consecutiveDaysInfo.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No slots available for these dates. Please select another date.
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        const prevDay = new Date(date);
-                        prevDay.setDate(prevDay.getDate() - 1);
-                        if (prevDay >= new Date()) {
-                          setDate(prevDay);
-                        }
-                      }}
-                      disabled={
-                        date &&
-                        new Date(date).setHours(0, 0, 0, 0) ===
-                          new Date().setHours(0, 0, 0, 0)
-                      }
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <span className="font-medium">{formattedDate}</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        const nextDay = new Date(date);
-                        nextDay.setDate(nextDay.getDate() + 1);
-                        setDate(nextDay);
-                      }}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {timeSlots.map((slot) => (
-                      <div
-                        key={slot.id}
-                        className={cn(
-                          "p-3 border rounded-md cursor-pointer transition-colors",
-                          slot.available
-                            ? "hover:border-primary"
-                            : "opacity-50 cursor-not-allowed",
-                          selectedTimeSlot === slot.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border"
-                        )}
-                        onClick={() => {
-                          if (slot.available) {
-                            handleTimeSlotSelection(slot.id);
-                          }
-                        }}
-                      >
-                        <div
-                          className={cn(
-                            "text-sm font-medium",
-                            selectedTimeSlot === slot.id && "text-primary"
-                          )}
-                        >
-                          {slot.time}
-                        </div>
-                        <div className="text-xs mt-1">
-                          {slot.available ? (
-                            <span className="text-green-600">Available</span>
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <h3 className="font-medium">Slot Details</h3>
+                    
+                    {consecutiveDaysInfo.map((dayInfo, index) => (
+                      <div key={index} className="border rounded-md p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-medium">{format(dayInfo.date, "EEEE, MMMM d")}</span>
+                          {dayInfo.isAvailable ? (
+                            <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded">Available</span>
                           ) : (
-                            <span className="text-red-600">Booked</span>
+                            <span className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded">Unavailable</span>
                           )}
                         </div>
+                        
+                        {dayInfo.slot ? (
+                          <div className="text-sm">
+                            <div className="flex items-center text-muted-foreground mb-1">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span>Time: {dayInfo.slot.start_time} - {dayInfo.slot.end_time}</span>
+                            </div>
+                            <div className="text-muted-foreground">
+                              Session duration: {dayInfo.slot.slot_duration} minutes
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">
+                            No slot available for this day
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
 
-                  <div className="pt-6">
-                    <Button onClick={handleContinue} className="w-full">
-                      Continue to Payment
+                  <div className="p-3 bg-primary/5 border border-primary/20 rounded-md">
+                    <div className="font-medium mb-1">Important Information:</div>
+                    <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                      <li>Please arrive 15 minutes before your scheduled time</li>
+                      <li>Bring your swimming gear, including a towel</li>
+                      <li>Cancellations must be made 24 hours in advance</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <Button 
+                      onClick={handleContinue} 
+                      className="w-full" 
+                      disabled={!allDaysAvailable}
+                    >
+                      {allDaysAvailable ? 
+                        "Continue to Payment" : 
+                        "Not All Days Available"
+                      }
                     </Button>
                   </div>
                 </div>
@@ -270,17 +340,14 @@ const BookAnalysisSlot = () => {
             
             <div className="py-4">
               <div className="space-y-2">
-                {formattedConsecutiveDays.map((day, index) => (
+                {consecutiveDaysInfo.map((dayInfo, index) => (
                   <div
                     key={index}
                     className="flex justify-between items-center p-2 bg-background rounded border border-border"
                   >
-                    <span>{day}</span>
+                    <span>{format(dayInfo.date, "EEE, MMM d")}</span>
                     <span className="font-medium">
-                      {selectedTimeSlot !== null
-                        ? timeSlots.find((slot) => slot.id === selectedTimeSlot)
-                            ?.time
-                        : ""}
+                      {dayInfo.slot ? `${dayInfo.slot.start_time} - ${dayInfo.slot.end_time}` : "No time"}
                     </span>
                   </div>
                 ))}
@@ -291,7 +358,7 @@ const BookAnalysisSlot = () => {
                 <ul className="text-sm text-muted-foreground list-disc pl-5 space-y-1">
                   <li>Please arrive 15 minutes before your scheduled time</li>
                   <li>Bring your swimming gear, including a towel</li>
-                  <li>Sessions are 60 minutes long</li>
+                  <li>Sessions are {consecutiveDaysInfo[0]?.slot?.slot_duration || 60} minutes long</li>
                   <li>Cancellations must be made 24 hours in advance</li>
                 </ul>
               </div>
@@ -311,3 +378,4 @@ const BookAnalysisSlot = () => {
 };
 
 export default BookAnalysisSlot;
+

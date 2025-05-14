@@ -1,5 +1,5 @@
 import { Payment, UUID } from '@/types/schema';
-import { PaymentService, BookingService, UserService, NotificationService } from './index';
+import { PaymentService, BookingService, UserService, NotificationService } from '../index';
 
 export const recordPayment = async (
   bookingId: UUID, 

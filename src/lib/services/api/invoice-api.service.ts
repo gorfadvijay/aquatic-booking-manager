@@ -1,5 +1,5 @@
 import { Invoice, UUID, NotificationChannel } from '@/types/schema';
-import { InvoiceService, BookingService, UserService, NotificationService } from './index';
+import { InvoiceService, BookingService, UserService, NotificationService } from '../index';
 
 export const generateInvoice = async (
   bookingId: UUID, 

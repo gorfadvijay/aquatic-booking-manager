@@ -1,5 +1,4 @@
-
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -23,6 +22,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { loginUser } from "@/lib/db";
+import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   email: z
@@ -38,6 +39,7 @@ const formSchema = z.object({
 const Login = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -48,18 +50,75 @@ const Login = () => {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Simulate login
-    toast({
-      title: "Login successful",
-      description: `Logged in as ${values.userType}`,
-    });
-
-    // Redirect based on user type
-    if (values.userType === "admin") {
-      navigate("/admin");
-    } else {
-      navigate("/customer/book");
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    
+    try {
+      // For admin, use static credentials check
+      if (values.userType === "admin") {
+        if (values.email === "admin@swimmple.com" && values.password === "password8452") {
+          // Static admin user
+          const adminUser = {
+            id: "58e48818-18c2-48ea-b11a-ac239712ca02",
+            name: "Admin User",
+            email: "admin@swimmple.com",
+            phone: "+91 9876543210",
+            dob: "1990-01-01",
+            is_admin: true,
+            is_verified: true,
+            created_at: new Date().toISOString()
+          };
+          
+          toast({
+            title: "Login successful",
+            description: `Welcome back, ${adminUser.name}`,
+          });
+          
+          navigate("/admin");
+          return;
+        } else {
+          toast({
+            title: "Login failed",
+            description: "Invalid admin credentials",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+      
+      // For regular users, use the API
+      const user = await loginUser(
+        values.email, 
+        values.password, 
+        values.userType as 'admin' | 'customer'
+      );
+      
+      if (user) {
+        toast({
+          title: "Login successful",
+          description: `Welcome back, ${user.name}`,
+        });
+        
+        navigate("/customer/book");
+      } else {
+        toast({
+          title: "Login failed",
+          description: "Invalid email or password",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      
+      toast({
+        title: "Login error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -163,8 +222,15 @@ const Login = () => {
                   )}
                 />
 
-                <Button type="submit" className="w-full">
-                  Sign In
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing In...
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
               </form>
             </Form>

@@ -1,4 +1,4 @@
-import { BookingService, PaymentService } from './index';
+import { BookingService, PaymentService } from '../index';
 
 export const generateBookingReport = async (
   startDate: string,

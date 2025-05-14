@@ -41,6 +41,7 @@ const step1Schema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
   lastName: z.string().min(2, { message: "Last name is required" }),
   email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   phone: z.string().min(10, { message: "Phone number must be at least 10 digits" }),
   dob: z.date({
     required_error: "Date of birth is required",
@@ -67,6 +68,7 @@ const formSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required" }),
   lastName: z.string().min(2, { message: "Last name is required" }),
   email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   phone: z.string().min(10, { message: "Phone number must be at least 10 digits" }),
   dob: z.date({
     required_error: "Date of birth is required",
@@ -101,6 +103,7 @@ const Registration = () => {
       firstName: "",
       lastName: "",
       email: "",
+      password: "",
       phone: "",
       address: "",
       city: "",
@@ -161,8 +164,17 @@ const Registration = () => {
       await registerUser({
         name: `${formValues.firstName} ${formValues.lastName}`,
         email: formValues.email,
+        password: formValues.password,
         phone: formValues.phone,
         dob: formValues.dob.toISOString(),
+        gender: formValues.gender,
+        swimming_experience: formValues.swimmingExperience,
+        address: formValues.address,
+        city: formValues.city,
+        state: formValues.state,
+        zip_code: formValues.zipCode,
+        emergency_contact_name: formValues.emergencyContactName,
+        emergency_contact_phone: formValues.emergencyContactPhone
       });
       
       setIsOtpSent(true);
@@ -318,6 +330,24 @@ const Registration = () => {
                             <FormDescription>
                               We'll send a verification code to this email
                             </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="********"
+                                type="password"
+                                {...field}
+                              />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -678,6 +708,10 @@ const Registration = () => {
                   <span className="font-medium text-foreground">
                     {form.getValues("phone")}
                   </span>
+                </p>
+
+                <p className="text-sm text-muted-foreground mb-4">
+                  <strong>For testing:</strong> Use code <span className="font-bold">8452</span>
                 </p>
 
                 <div className="flex justify-center gap-2 mb-6">

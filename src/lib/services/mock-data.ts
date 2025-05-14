@@ -9,7 +9,8 @@ export function initializeMockData() {
   storage.users.set(adminId, {
     id: adminId,
     name: 'Admin User',
-    email: 'admin@swimple.com',
+    email: 'admin@swimmple.com',
+    password: 'password8452',
     phone: '+91 9876543210',
     dob: '1990-01-01',
     is_admin: true,

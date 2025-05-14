@@ -5,7 +5,7 @@ import {
   BookingService, 
   PaymentService, 
   NotificationService 
-} from './index';
+} from '../index';
 
 export const createBooking = async (
   userData: Omit<User, 'id' | 'is_admin' | 'is_verified' | 'otp_code' | 'otp_expiry' | 'created_at'>,

@@ -32,12 +32,7 @@ const AdminLayout = () => {
       title: "Slot Management",
       icon: <Settings className="h-5 w-5" />,
       path: "/admin/slots",
-      submenu: [
-        {
-          title: "Create Slots",
-          path: "/admin/slots/create",
-        },
-      ],
+   
     },
     {
       title: "Reports",

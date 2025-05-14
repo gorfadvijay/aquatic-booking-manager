@@ -1,5 +1,5 @@
 import { Notification, UUID, NotificationChannel, NotificationType } from '@/types/schema';
-import { NotificationService } from './index';
+import { NotificationService } from '../index';
 
 export const sendNotification = async (
   userId: UUID, 

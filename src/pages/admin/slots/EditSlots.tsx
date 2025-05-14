@@ -152,7 +152,6 @@ const EditSlots = () => {
         start_time: "09:00",
         end_time: "17:00",
         is_holiday: false,
-        created_by: "admin-id",
         created_at: new Date().toISOString()
       },
       {
@@ -161,7 +160,6 @@ const EditSlots = () => {
         start_time: "09:00",
         end_time: "17:00",
         is_holiday: false,
-        created_by: "admin-id",
         created_at: new Date().toISOString()
       },
       {
@@ -170,7 +168,6 @@ const EditSlots = () => {
         start_time: "09:00",
         end_time: "17:00",
         is_holiday: false,
-        created_by: "admin-id",
         created_at: new Date().toISOString()
       },
       {
@@ -179,7 +176,6 @@ const EditSlots = () => {
         start_time: "09:00",
         end_time: "17:00",
         is_holiday: false,
-        created_by: "admin-id",
         created_at: new Date().toISOString()
       },
       {
@@ -188,7 +184,6 @@ const EditSlots = () => {
         start_time: "09:00",
         end_time: "17:00",
         is_holiday: false,
-        created_by: "admin-id",
         created_at: new Date().toISOString()
       },
       {
@@ -197,7 +192,6 @@ const EditSlots = () => {
         start_time: "",
         end_time: "",
         is_holiday: true,
-        created_by: "admin-id",
         created_at: new Date().toISOString()
       },
       {
@@ -206,7 +200,6 @@ const EditSlots = () => {
         start_time: "",
         end_time: "",
         is_holiday: true,
-        created_by: "admin-id",
         created_at: new Date().toISOString()
       }
     ]

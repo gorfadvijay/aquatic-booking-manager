@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -32,44 +32,39 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { createSlot, createSlotException } from "@/lib/db";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
-const weekdays = [
-  { id: "monday", label: "Monday" },
-  { id: "tuesday", label: "Tuesday" },
-  { id: "wednesday", label: "Wednesday" },
-  { id: "thursday", label: "Thursday" },
-  { id: "friday", label: "Friday" },
-  { id: "saturday", label: "Saturday" },
-  { id: "sunday", label: "Sunday" },
-];
+import { createSlot } from "@/lib/db";
 
 const formSchema = z.object({
-  slotType: z.enum(["weekly", "specific"]),
-  weekdays: z.array(z.string()).optional(),
-  startDate: z.date().optional(),
-  endDate: z.date().optional(),
+  start_date: z.date({
+    required_error: "Start date is required",
+  }),
+  end_date: z.date().optional(),
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
   slotDuration: z.string().min(1, "Slot duration is required"),
   isHoliday: z.boolean().default(false),
-  holidayReason: z.string().optional(),
 });
 
 const CreateSlots = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  
+  // Parse query parameters to pre-fill date if provided
+  const searchParams = new URLSearchParams(location.search);
+  const dateParam = searchParams.get('date');
+  const initialDate = dateParam 
+    ? parse(dateParam, 'yyyy-MM-dd', new Date()) 
+    : new Date();
+  
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      slotType: "weekly",
-      weekdays: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+      start_date: initialDate,
       startTime: "09:00",
       endTime: "17:00",
       slotDuration: "60",
@@ -77,71 +72,37 @@ const CreateSlots = () => {
     },
   });
 
-  const slotType = form.watch("slotType");
   const isHoliday = form.watch("isHoliday");
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      if (values.slotType === "weekly") {
-        // Create weekly recurring slots
-        const selectedDays = values.weekdays || [];
-        
-        // In a real app with authenticated users, this would use the current admin's ID
-        const adminId = "admin-user-id"; 
-        
-        // Create a slot for each selected day
-        for (const dayId of selectedDays) {
-          const day = weekdays.find(d => d.id === dayId);
-          if (day) {
-            await createSlot({
-              day_of_week: day.label,
-              start_time: values.isHoliday ? "" : values.startTime,
-              end_time: values.isHoliday ? "" : values.endTime,
-              is_holiday: values.isHoliday,
-              created_by: adminId
-            });
-          }
-        }
-      } else if (values.slotType === "specific" && values.startDate) {
-        // Create specific date exceptions
-        const adminId = "admin-user-id";
-        
-        // This is a simplified implementation for the mock database
-        // In a real app with proper slot IDs, you would get the slot for the day of week
-        // based on the specific date, and then create an exception for that slot
-        
-        // For the demo, we'll create a slot exception for the selected date(s)
-        if (values.startDate) {
-          const slotExceptionData = {
-            slot_id: "slot-id", // This would be a real slot ID in a real app
-            date: values.startDate.toISOString(),
-            new_start_time: values.isHoliday ? null : values.startTime,
-            new_end_time: values.isHoliday ? null : values.endTime,
-            is_holiday: values.isHoliday,
-            notes: values.holidayReason || (values.isHoliday ? "Holiday" : "Modified hours")
-          };
-          
-          await createSlotException(slotExceptionData);
-          
-          // If end date is provided, create exceptions for the date range
-          if (values.endDate && values.endDate > values.startDate) {
-            // In a real implementation, we would create exceptions for each date in the range
-            console.log("Would create exceptions for date range:", values.startDate, "to", values.endDate);
-          }
-        }
-      }
+      // Create slot
+      const currentTime = new Date();
+      const currentTimeStr = `${currentTime.getHours().toString().padStart(2, '0')}:${currentTime.getMinutes().toString().padStart(2, '0')}`;
 
+      const slotData = {
+        start_date: values.start_date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        end_date: values.end_date ? values.end_date.toISOString().split('T')[0] : undefined,
+        start_time: values.isHoliday ? currentTimeStr : values.startTime,
+        end_time: values.isHoliday ? currentTimeStr : values.endTime,
+        is_holiday: values.isHoliday,
+        slot_duration: parseInt(values.slotDuration),
+      };
+      
+      // Create the slot
+      await createSlot(slotData);
+      
       toast({
-        title: "Slots created successfully",
-        description: "The new slots have been added to your schedule.",
+        title: "Slot created successfully",
+        description: "The new slot has been added to your calendar.",
       });
       navigate("/admin/slots");
     } catch (error) {
-      console.error("Error creating slots:", error);
+      console.error("Error creating slot:", error);
       toast({
         title: "Error",
-        description: "Failed to create slots. Please try again.",
+        description: "Failed to create slot. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -152,7 +113,7 @@ const CreateSlots = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">Create Slots</h1>
+        <h1 className="text-3xl font-bold">Create Slot</h1>
         <p className="text-muted-foreground">
           Set up availability for your swimming pool
         </p>
@@ -168,178 +129,98 @@ const CreateSlots = () => {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="slotType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Slot Type</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select slot type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="weekly">Weekly Recurring</SelectItem>
-                        <SelectItem value="specific">Specific Dates</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Choose whether to create a weekly schedule or specific dates
-                    </FormDescription>
-                  </FormItem>
-                )}
-              />
-
-              {slotType === "weekly" && (
+              <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="weekdays"
-                  render={() => (
-                    <FormItem>
-                      <div className="mb-4">
-                        <FormLabel>Days of Week</FormLabel>
-                        <FormDescription>
-                          Select which days of the week the pool is available
-                        </FormDescription>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {weekdays.map((item) => (
-                          <FormField
-                            key={item.id}
-                            control={form.control}
-                            name="weekdays"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={item.id}
-                                  className="flex flex-row items-start space-x-3 space-y-0"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(item.id)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([
-                                              ...(field.value || []),
-                                              item.id,
-                                            ])
-                                          : field.onChange(
-                                              field.value?.filter(
-                                                (value) => value !== item.id
-                                              )
-                                            );
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormLabel className="font-normal">
-                                    {item.label}
-                                  </FormLabel>
-                                </FormItem>
-                              );
-                            }}
+                  name="start_date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Start Date</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) => date < new Date()}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
                           />
-                        ))}
-                      </div>
+                        </PopoverContent>
+                      </Popover>
+                      <FormDescription>
+                        Select the start date for this slot
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              )}
-
-              {slotType === "specific" && (
-                <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Start Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) =>
-                                date < new Date()
-                              }
-                              initialFocus
-                              className={cn("p-3 pointer-events-auto")}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="endDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>End Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) => {
-                                const startDate = form.watch("startDate");
-                                return !startDate || date < startDate;
-                              }}
-                              initialFocus
-                              className={cn("p-3 pointer-events-auto")}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              )}
+                
+                <FormField
+                  control={form.control}
+                  name="end_date"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>End Date (Optional)</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick an end date</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) => {
+                              const startDate = form.watch("start_date");
+                              return !startDate || date < startDate;
+                            }}
+                            initialFocus
+                            className={cn("p-3 pointer-events-auto")}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormDescription>
+                        For recurring slots until a specific date (optional)
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}
@@ -361,22 +242,6 @@ const CreateSlots = () => {
                   </FormItem>
                 )}
               />
-
-              {isHoliday && (
-                <FormField
-                  control={form.control}
-                  name="holidayReason"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Holiday Reason</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Public Holiday, Maintenance, etc." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
 
               {!isHoliday && (
                 <div className="grid gap-6 grid-cols-1 md:grid-cols-3">
@@ -445,7 +310,7 @@ const CreateSlots = () => {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? "Creating..." : "Create Slots"}
+                  {isSubmitting ? "Creating..." : "Create Slot"}
                 </Button>
               </div>
             </form>
