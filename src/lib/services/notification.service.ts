@@ -1,8 +1,33 @@
 import { Notification, UUID } from '@/types/schema';
 import { storage, timestamp, generateId } from './storage';
+import { isSupabaseConfigured } from '../supabase';
+import { supabase } from '../supabase';
 
 export const NotificationService = {
-  create: (notification: Omit<Notification, 'id' | 'sent_at' | 'status'>): Notification => {
+  create: async (notification: Omit<Notification, 'id' | 'sent_at' | 'status'>): Promise<Notification> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .insert([{ 
+            user_id: notification.user_id,
+            channel: notification.channel,
+            type: notification.type,
+            message: notification.message,
+            status: 'sent'
+          }])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return data as Notification;
+      } catch (error) {
+        console.error('Failed to create notification in Supabase:', error);
+        // Fall back to in-memory storage
+      }
+    }
+    
+    // In-memory storage
     const id = generateId();
     const newNotification: Notification = {
       ...notification,
@@ -14,20 +39,82 @@ export const NotificationService = {
     return newNotification;
   },
 
-  getById: (id: UUID): Notification | undefined => {
+  getById: async (id: UUID): Promise<Notification | undefined> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) throw error;
+        return data as Notification;
+      } catch (error) {
+        console.error('Failed to get notification from Supabase:', error);
+        // Fall back to in-memory storage
+      }
+    }
+    
     return storage.notifications.get(id);
   },
 
-  getByUserId: (userId: UUID): Notification[] => {
+  getByUserId: async (userId: UUID): Promise<Notification[]> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', userId);
+        
+        if (error) throw error;
+        return data as Notification[];
+      } catch (error) {
+        console.error('Failed to get notifications from Supabase:', error);
+        // Fall back to in-memory storage
+      }
+    }
+    
     return Array.from(storage.notifications.values())
       .filter(notification => notification.user_id === userId);
   },
 
-  getAll: (): Notification[] => {
+  getAll: async (): Promise<Notification[]> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*');
+        
+        if (error) throw error;
+        return data as Notification[];
+      } catch (error) {
+        console.error('Failed to get all notifications from Supabase:', error);
+        // Fall back to in-memory storage
+      }
+    }
+    
     return Array.from(storage.notifications.values());
   },
 
-  update: (id: UUID, data: Partial<Notification>): Notification | undefined => {
+  update: async (id: UUID, data: Partial<Notification>): Promise<Notification | undefined> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { data: updatedData, error } = await supabase
+          .from('notifications')
+          .update(data)
+          .eq('id', id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return updatedData as Notification;
+      } catch (error) {
+        console.error('Failed to update notification in Supabase:', error);
+        // Fall back to in-memory storage
+      }
+    }
+    
     const notification = storage.notifications.get(id);
     if (!notification) return undefined;
     
@@ -36,7 +123,21 @@ export const NotificationService = {
     return updatedNotification;
   },
 
-  delete: (id: UUID): boolean => {
+  delete: async (id: UUID): Promise<boolean> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await supabase
+          .from('notifications')
+          .delete()
+          .eq('id', id);
+        
+        return !error;
+      } catch (error) {
+        console.error('Failed to delete notification from Supabase:', error);
+        // Fall back to in-memory storage
+      }
+    }
+    
     return storage.notifications.delete(id);
   }
 }; 

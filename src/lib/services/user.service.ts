@@ -1,8 +1,15 @@
 import { User, UUID } from '@/types/schema';
 import { storage, timestamp, generateId } from './storage';
+import { UserDatabase } from './database.service';
+import { isSupabaseConfigured } from '../supabase';
 
 export const UserService = {
-  create: (user: Omit<User, 'id' | 'created_at'>): User => {
+  create: async (user: Omit<User, 'id' | 'created_at'>): Promise<User> => {
+    if (isSupabaseConfigured()) {
+      return UserDatabase.create(user);
+    }
+    
+    // Fallback to in-memory storage
     const id = generateId();
     const newUser: User = {
       ...user,
@@ -13,15 +20,30 @@ export const UserService = {
     return newUser;
   },
 
-  getById: (id: UUID): User | undefined => {
+  getById: async (id: UUID): Promise<User | undefined> => {
+    if (isSupabaseConfigured()) {
+      return UserDatabase.getById(id);
+    }
+    
+    // Fallback to in-memory storage
     return storage.users.get(id);
   },
 
-  getByEmail: (email: string): User | undefined => {
+  getByEmail: async (email: string): Promise<User | undefined> => {
+    if (isSupabaseConfigured()) {
+      return UserDatabase.getByEmail(email);
+    }
+    
+    // Fallback to in-memory storage
     return Array.from(storage.users.values()).find(user => user.email === email);
   },
 
-  update: (id: UUID, data: Partial<User>): User | undefined => {
+  update: async (id: UUID, data: Partial<User>): Promise<User | undefined> => {
+    if (isSupabaseConfigured()) {
+      return UserDatabase.update(id, data);
+    }
+    
+    // Fallback to in-memory storage
     const user = storage.users.get(id);
     if (!user) return undefined;
     
@@ -30,12 +52,22 @@ export const UserService = {
     return updatedUser;
   },
 
-  delete: (id: UUID): boolean => {
+  delete: async (id: UUID): Promise<boolean> => {
+    if (isSupabaseConfigured()) {
+      try {
+        const { error } = await UserDatabase.delete(id);
+        return !error;
+      } catch {
+        return false;
+      }
+    }
+    
+    // Fallback to in-memory storage
     return storage.users.delete(id);
   },
 
-  verifyOTP: (email: string, otp: string): boolean => {
-    const user = Array.from(storage.users.values()).find(user => user.email === email);
+  verifyOTP: async (email: string, otp: string): Promise<boolean> => {
+    const user = await UserService.getByEmail(email);
     
     if (!user || !user.otp_code || user.otp_code !== otp) {
       return false;
@@ -47,8 +79,7 @@ export const UserService = {
     }
     
     // Mark user as verified and clear OTP
-    storage.users.set(user.id, {
-      ...user,
+    await UserService.update(user.id, {
       is_verified: true,
       otp_code: null,
       otp_expiry: null
@@ -57,7 +88,12 @@ export const UserService = {
     return true;
   },
   
-  getAll: (): User[] => {
+  getAll: async (): Promise<User[]> => {
+    if (isSupabaseConfigured()) {
+      return UserDatabase.getAll();
+    }
+    
+    // Fallback to in-memory storage
     return Array.from(storage.users.values());
   }
 }; 

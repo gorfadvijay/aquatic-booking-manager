@@ -1,5 +1,3 @@
-
-
 /**
  * Database schema type definitions for the Swim Slot Booking System
  */
@@ -17,6 +15,14 @@ export type User = {
   otp_code: string | null;
   otp_expiry: Date | string | null;
   created_at: Date | string;
+  gender?: 'male' | 'female' | 'other';
+  swimming_experience?: 'beginner' | 'intermediate' | 'advanced';
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
 };
 
 export type Slot = {

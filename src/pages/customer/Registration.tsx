@@ -163,6 +163,14 @@ const Registration = () => {
         email: formValues.email,
         phone: formValues.phone,
         dob: formValues.dob.toISOString(),
+        gender: formValues.gender,
+        swimming_experience: formValues.swimmingExperience,
+        address: formValues.address,
+        city: formValues.city,
+        state: formValues.state,
+        zip_code: formValues.zipCode,
+        emergency_contact_name: formValues.emergencyContactName,
+        emergency_contact_phone: formValues.emergencyContactPhone
       });
       
       setIsOtpSent(true);
@@ -678,6 +686,10 @@ const Registration = () => {
                   <span className="font-medium text-foreground">
                     {form.getValues("phone")}
                   </span>
+                </p>
+
+                <p className="text-sm text-muted-foreground mb-4">
+                  <strong>For testing:</strong> Use code <span className="font-bold">8452</span>
                 </p>
 
                 <div className="flex justify-center gap-2 mb-6">
