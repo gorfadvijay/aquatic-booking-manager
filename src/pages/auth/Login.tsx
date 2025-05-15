@@ -69,6 +69,17 @@ const Login = () => {
             created_at: new Date().toISOString()
           };
           
+          // Store admin information in localStorage
+          localStorage.setItem('userId', adminUser.id);
+          localStorage.setItem('userEmail', adminUser.email);
+          localStorage.setItem('userName', adminUser.name);
+          localStorage.setItem('userPhone', adminUser.phone);
+          localStorage.setItem('userDob', adminUser.dob);
+          localStorage.setItem('isAdmin', 'true');
+          
+          // Store complete user object as JSON string for convenience
+          localStorage.setItem('userData', JSON.stringify(adminUser));
+          
           toast({
             title: "Login successful",
             description: `Welcome back, ${adminUser.name}`,
@@ -94,6 +105,23 @@ const Login = () => {
       );
       
       if (user) {
+        // Store user information in localStorage
+        localStorage.setItem('userId', user.id);
+        localStorage.setItem('userEmail', user.email);
+        localStorage.setItem('userName', user.name);
+        localStorage.setItem('userPhone', user.phone || '');
+        localStorage.setItem('userDob', user.dob ? (typeof user.dob === 'string' ? user.dob : user.dob.toISOString()) : '');
+        
+        // Store complete user object as JSON string for convenience
+        localStorage.setItem('userData', JSON.stringify({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          dob: user.dob,
+          // Add any other available properties from the user object
+        }));
+        
         toast({
           title: "Login successful",
           description: `Welcome back, ${user.name}`,

@@ -258,7 +258,7 @@ const SlotManagement = () => {
       }
     } catch (error) {
       console.error("Error removing slot:", error);
-      toast({
+    toast({
         title: "Error",
         description: "Failed to remove slot",
         variant: "destructive",
@@ -289,7 +289,7 @@ const SlotManagement = () => {
       setShowEditDialog(true);
     }
   };
-
+  
   // Render a calendar day cell
   const renderCalendarDay = (day: CalendarDayInfo) => {
     const isToday = isSameDay(day.date, new Date());
@@ -501,21 +501,21 @@ const SlotManagement = () => {
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                 <div key={day} className="py-2 text-center font-medium text-sm">
                   {day}
-                </div>
+                        </div>
               ))}
-            </div>
+                          </div>
             
             {/* Calendar grid */}
             <div className="grid grid-cols-7 gap-px bg-gray-200">
               {calendarDays.map(day => renderCalendarDay(day))}
-            </div>
+                        </div>
             
             {/* Legend */}
             <div className="mt-4 flex gap-4 text-sm">
               <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-green-100 border border-green-300 mr-1"></div>
                 <span>Available</span>
-              </div>
+                      </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-red-100 border border-red-300 mr-1"></div>
                 <span>Holiday</span>
@@ -676,7 +676,7 @@ const SlotManagement = () => {
                         <label htmlFor="is-holiday" className="text-sm font-medium">
                           Mark as holiday
                         </label>
-                      </div>
+              </div>
                     </FormControl>
                   </FormItem>
                 )}

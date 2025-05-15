@@ -1,9 +1,9 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import React from "react";
 
 // Layouts
 import AdminLayout from "./layouts/AdminLayout";
@@ -22,6 +22,7 @@ import CustomerRegistration from "./pages/customer/Registration";
 import BookAnalysisSlot from "./pages/customer/BookAnalysisSlot";
 import Payment from "./pages/customer/Payment";
 import Invoice from "./pages/customer/Invoice";
+import BookingDetails from "./pages/customer/BookingDetails";
 
 // Auth & Other Pages
 import Login from "./pages/auth/Login";
@@ -29,6 +30,17 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Placeholder component for pages that may not be implemented yet
+const PlaceholderPage = ({ name }: { name: string }) => (
+  <div className="p-8 flex flex-col items-center justify-center min-h-[50vh]">
+    <h1 className="text-2xl font-bold mb-4">{name} Page</h1>
+    <p className="text-muted-foreground mb-6">This page is under development.</p>
+    <a href="/customer/booking-details" className="text-primary hover:underline">
+      Go to My Bookings
+    </a>
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -46,7 +58,10 @@ const App = () => (
             <Route path="register" element={<CustomerRegistration />} />
             <Route path="book" element={<BookAnalysisSlot />} />
             <Route path="payment" element={<Payment />} />
+            <Route path="booking-success" element={<PlaceholderPage name="Booking Success" />} />
+            <Route path="payment-fail" element={<PlaceholderPage name="Payment Failed" />} />
             <Route path="invoice/:id" element={<Invoice />} />
+            <Route path="booking-details" element={<BookingDetails />} />
           </Route>
           
           {/* Admin Routes */}

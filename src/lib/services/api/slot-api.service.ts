@@ -35,7 +35,7 @@ export const updateSlot = async (
   try {
     // In a real app, you would check for conflicts with existing bookings here
     const conflicts: Booking[] = [];
-    
+  
     // Update the slot in Supabase
     const { data, error } = await supabase
       .from('slots')
@@ -47,8 +47,8 @@ export const updateSlot = async (
     if (error) {
       console.error('Failed to update slot:', error);
       throw error;
-    }
-    
+  }
+  
     return { slot: data as Slot, conflicts };
   } catch (error) {
     console.error('Error updating slot:', error);

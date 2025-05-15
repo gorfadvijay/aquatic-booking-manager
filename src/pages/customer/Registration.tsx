@@ -202,6 +202,37 @@ const Registration = () => {
       const user = await verifyOTP(userEmail, otpValue);
       
       if (user) {
+        // Store user information in localStorage
+        const formValues = form.getValues();
+        localStorage.setItem('userId', user.id || `user-${Math.random().toString(36).substring(2, 9)}`);
+        localStorage.setItem('userEmail', formValues.email);
+        localStorage.setItem('userName', `${formValues.firstName} ${formValues.lastName}`);
+        localStorage.setItem('userPhone', formValues.phone);
+        localStorage.setItem('userGender', formValues.gender);
+        localStorage.setItem('userDob', formValues.dob.toISOString());
+        localStorage.setItem('userSwimmingExperience', formValues.swimmingExperience);
+        localStorage.setItem('userAddress', formValues.address);
+        localStorage.setItem('userCity', formValues.city);
+        localStorage.setItem('userState', formValues.state);
+        localStorage.setItem('userZipCode', formValues.zipCode);
+        
+        // Store complete user object as JSON string for convenience
+        localStorage.setItem('userData', JSON.stringify({
+          id: user.id || `user-${Math.random().toString(36).substring(2, 9)}`,
+          email: formValues.email,
+          name: `${formValues.firstName} ${formValues.lastName}`,
+          phone: formValues.phone,
+          gender: formValues.gender,
+          dob: formValues.dob.toISOString(),
+          swimming_experience: formValues.swimmingExperience,
+          address: formValues.address,
+          city: formValues.city,
+          state: formValues.state,
+          zip_code: formValues.zipCode,
+          emergency_contact_name: formValues.emergencyContactName,
+          emergency_contact_phone: formValues.emergencyContactPhone
+        }));
+        
         toast({
           title: "Verification successful",
           description: "Your email and phone have been verified.",

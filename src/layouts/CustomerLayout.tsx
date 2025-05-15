@@ -1,9 +1,40 @@
-
-import React from "react";
-import { Outlet, Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Outlet, Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const CustomerLayout = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if user is logged in
+    const userEmail = localStorage.getItem("userEmail");
+    const userName = localStorage.getItem("userName");
+    const userId = localStorage.getItem("userId");
+    
+    setIsLoggedIn(!!(userEmail || userName || userId));
+  }, []);
+
+  const handleLogout = () => {
+    // Clear ALL user-related data from localStorage
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userPhone");
+    localStorage.removeItem("userDob");
+    localStorage.removeItem("userData");
+    
+    // For complete cleanup, consider clearing any other potential user data
+    localStorage.removeItem("userToken");
+    localStorage.removeItem("userRole");
+    
+    // Set logged out state
+    setIsLoggedIn(false);
+    
+    // Redirect to home page
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="bg-white border-b border-border shadow-sm">
@@ -30,16 +61,18 @@ const CustomerLayout = () => {
           </Link>
 
           <nav className="hidden md:flex gap-6">
-            <Link
-              to="/customer/register"
-              className={cn(
-                "text-sm font-medium text-muted-foreground hover:text-primary transition-colors",
-                window.location.pathname === "/customer/register" &&
-                  "text-primary"
-              )}
-            >
-              Register
-            </Link>
+            {!isLoggedIn && (
+              <Link
+                to="/customer/register"
+                className={cn(
+                  "text-sm font-medium text-muted-foreground hover:text-primary transition-colors",
+                  window.location.pathname === "/customer/register" &&
+                    "text-primary"
+                )}
+              >
+                Register
+              </Link>
+            )}
             <Link
               to="/customer/book"
               className={cn(
@@ -49,15 +82,33 @@ const CustomerLayout = () => {
             >
               Book Analysis
             </Link>
+            <Link
+              to="/customer/booking-details"
+              className={cn(
+                "text-sm font-medium text-muted-foreground hover:text-primary transition-colors",
+                window.location.pathname === "/customer/booking-details" && "text-primary"
+              )}
+            >
+              My Bookings
+            </Link>
           </nav>
 
           <div className="flex items-center gap-4">
-            <Link
-              to="/login"
-              className="text-sm font-medium text-primary hover:text-primary/80"
-            >
-              Login
-            </Link>
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className="text-sm font-medium text-primary hover:text-primary/80"
+              >
+                Logout
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="text-sm font-medium text-primary hover:text-primary/80"
+              >
+                Login
+              </Link>
+            )}
           </div>
         </div>
       </header>

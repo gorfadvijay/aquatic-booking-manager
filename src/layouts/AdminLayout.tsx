@@ -17,7 +17,14 @@ const AdminLayout = () => {
   const { toast } = useToast();
   const [collapsed, setCollapsed] = React.useState(false);
 
-  const menuItems = [
+  interface MenuItem {
+    title: string;
+    icon: React.ReactNode;
+    path: string;
+    submenu?: { title: string; path: string; }[];
+  }
+
+  const menuItems: MenuItem[] = [
     {
       title: "Dashboard",
       icon: <BookOpen className="h-5 w-5" />,
@@ -32,7 +39,6 @@ const AdminLayout = () => {
       title: "Slot Management",
       icon: <Settings className="h-5 w-5" />,
       path: "/admin/slots",
-   
     },
     {
       title: "Reports",
@@ -140,7 +146,9 @@ const AdminLayout = () => {
               <div className="font-medium text-sm">Admin User</div>
               <button
                 onClick={() => {
-                  // Logout logic would go here
+                  // Clear localStorage on logout
+                  localStorage.clear();
+                  
                   toast({
                     title: "Logged out",
                     description: "You have been logged out successfully",

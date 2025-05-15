@@ -24,6 +24,9 @@ import {
   Mail,
   MoreHorizontal,
   User,
+  Clock,
+  Phone,
+  Search,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -84,48 +87,84 @@ const ViewBookings = () => {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      // In a real implementation, we would fetch bookings for the selected date range
-      // based on the view mode (day, week, month)
-      
-      // For this demo, we'll fetch all bookings and filter them
-      const allBookings = await getAllBookings();
-      
-      // For demonstration purposes, we'll just return some mock data
-      // that is "associated" with the current selected date
-      
-      // Modify this when connecting to the real API
+      let fetchedBookings: Booking[] = [];
       const formattedSelectedDate = format(selectedDate, "yyyy-MM-dd");
       
-      // Add user details to bookings for display purposes
-      const enrichedBookings = allBookings
-        .filter(booking => {
-          // Filter based on view mode and selected date
+      // Fetch bookings based on view mode
+      if (viewMode === "day") {
+        // Fetch bookings for the specific day
+        fetchedBookings = await getBookingsByDate(formattedSelectedDate);
+      } else if (viewMode === "week") {
+        // Fetch bookings for the entire week
+        const promises = [];
+        for (let i = 0; i < 7; i++) {
+          const date = format(addDays(selectedDate, i - 3), "yyyy-MM-dd"); // -3 to +3 around the selected date
+          promises.push(getBookingsByDate(date));
+        }
+        const results = await Promise.all(promises);
+        fetchedBookings = results.flat();
+      } else {
+        // For month view, just get all bookings
+        // In a real app, you would filter by month
+        fetchedBookings = await getAllBookings();
+        
+        // Filter to only show the current month
+        fetchedBookings = fetchedBookings.filter(booking => {
           const bookingDate = typeof booking.booking_date === 'string' 
-            ? parseISO(booking.booking_date) 
-            : booking.booking_date;
-            
-          if (viewMode === "day") {
-            return format(bookingDate, "yyyy-MM-dd") === formattedSelectedDate;
-          } else if (viewMode === "week") {
-            // Filter for the entire week
-            // This is a simplified version, you might want to use the proper week range
-            return Math.abs(Number(bookingDate) - Number(selectedDate)) <= 7 * 24 * 60 * 60 * 1000;
-          } else {
-            // Filter for the entire month
-            return format(bookingDate, "yyyy-MM") === format(selectedDate, "yyyy-MM");
-          }
-        })
-        .map(booking => {
-          // Get user details for each booking
-          const user = UserService.getById(booking.user_id);
-          return {
-            ...booking,
-            customerName: user ? user.name : "Unknown Customer",
-            email: user ? user.email : "unknown@example.com",
-            phone: user ? user.phone : "Unknown Phone",
-            age: 28 // Mock age, in a real app this would come from user data or calculated from DOB
-          };
+            ? booking.booking_date 
+            : format(new Date(booking.booking_date), "yyyy-MM-dd");
+          return bookingDate.substring(0, 7) === format(selectedDate, "yyyy-MM");
         });
+      }
+
+      // Fetch all users for enriching booking data
+      const users = await UserService.getAll();
+      const userMap = users.reduce((acc, user) => {
+        acc[user.id] = user;
+        return acc;
+      }, {} as Record<string, any>);
+      
+      // Enrich bookings with user data
+      const enrichedBookings = fetchedBookings.map(booking => {
+        const user = userMap[booking.user_id];
+        
+        // Calculate age if DOB is available
+        let age;
+        if (user && user.dob) {
+          const dob = new Date(user.dob);
+          const today = new Date();
+          age = today.getFullYear() - dob.getFullYear();
+          const monthDiff = today.getMonth() - dob.getMonth();
+          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            age--;
+          }
+        }
+        
+        return {
+          ...booking,
+          customerName: user ? user.name : "Unknown Customer",
+          email: user ? user.email : "unknown@example.com",
+          phone: user ? user.phone : "Unknown Phone",
+          age: age || "N/A"
+        };
+      });
+      
+      // Sort bookings by date and time
+      enrichedBookings.sort((a, b) => {
+        // First sort by date
+        const dateA = new Date(a.booking_date).getTime();
+        const dateB = new Date(b.booking_date).getTime();
+        if (dateA !== dateB) return dateA - dateB;
+        
+        // Then by start time
+        const [hoursA, minutesA] = a.start_time.split(':').map(Number);
+        const [hoursB, minutesB] = b.start_time.split(':').map(Number);
+        
+        const timeA = hoursA * 60 + minutesA;
+        const timeB = hoursB * 60 + minutesB;
+        
+        return timeA - timeB;
+      });
       
       setBookings(enrichedBookings);
     } catch (error) {
@@ -136,41 +175,8 @@ const ViewBookings = () => {
         variant: "destructive",
       });
       
-      // Set mock data for development
-      setBookings([
-        {
-          id: "1",
-          user_id: "user1",
-          slot_id: "slot1",
-          booking_date: format(selectedDate, "yyyy-MM-dd"),
-          start_time: "9:00",
-          end_time: "10:00",
-          status: "booked",
-          rescheduled_to: null,
-          cancel_reason: null,
-          created_at: new Date().toISOString(),
-          customerName: "John Smith",
-          age: 28,
-          email: "john.smith@example.com",
-          phone: "+1 (555) 123-4567",
-        },
-        {
-          id: "2",
-          user_id: "user2",
-          slot_id: "slot1",
-          booking_date: format(selectedDate, "yyyy-MM-dd"),
-          start_time: "10:00",
-          end_time: "11:00",
-          status: "booked",
-          rescheduled_to: null,
-          cancel_reason: null,
-          created_at: new Date().toISOString(),
-          customerName: "Emma Wilson",
-          age: 24,
-          email: "emma.w@example.com",
-          phone: "+1 (555) 234-5678",
-        }
-      ] as any);
+      // Set empty bookings array
+      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -371,7 +377,7 @@ const ViewBookings = () => {
           </div>
         </CardContent>
       </Card>
-
+      
       <Card>
         <CardHeader>
           <CardTitle>Bookings</CardTitle>
@@ -401,21 +407,47 @@ const ViewBookings = () => {
               {bookings.map((booking: any) => (
                 <div
                   key={booking.id}
-                  className="flex flex-col md:flex-row md:items-center justify-between border-b border-border pb-4 pt-2 gap-2"
+                  className="flex flex-col md:flex-row md:items-center justify-between border rounded-lg p-4 mb-4 hover:bg-accent/5 transition-colors"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="bg-primary/10 text-primary p-2 rounded">
+                    <div className="bg-primary/10 text-primary p-2 rounded-full">
                       <User className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="font-medium">{booking.customerName}</div>
-                      <div className="text-sm text-muted-foreground">
-                        Age: {booking.age} • {booking.start_time} - {booking.end_time} • {format(new Date(booking.booking_date), "MMM dd, yyyy")}
+                      <div className="font-medium flex items-center">
+                        {booking.customerName}
+                        {booking.status === "completed" && (
+                          <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Completed</span>
+                        )}
+                        {booking.rescheduled_to && (
+                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Rescheduled</span>
+                        )}
+                        {booking.cancel_reason && (
+                          <span className="ml-2 text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full">Cancelled</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                        <span className="flex items-center">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {format(new Date(booking.booking_date), "MMM dd, yyyy")}
+                        </span>
+                        <span className="flex items-center">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {booking.start_time} - {booking.end_time}
+                        </span>
+                    
+                      
+                        {booking.age !== "N/A" && (
+                          <span className="flex items-center">
+                            <User className="h-3 w-3 mr-1" />
+                            Age: {booking.age}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-2 md:mt-0">
+                  <div className="flex items-center gap-2 mt-4 md:mt-0">
                     <Button
                       variant="outline"
                       size="sm"
@@ -426,53 +458,8 @@ const ViewBookings = () => {
                       <span>Invoice</span>
                     </Button>
                     
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1"
-                      onClick={() => setRescheduleBookingId(booking.id)}
-                    >
-                      <CalendarCheck className="h-3.5 w-3.5" />
-                      <span>Reschedule</span>
-                    </Button>
+             
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1"
-                      onClick={() => setCancelBookingId(booking.id)}
-                    >
-                      <CalendarX className="h-3.5 w-3.5" />
-                      <span>Cancel</span>
-                    </Button>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 bg-transparent"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => handleSendReminder(booking)}
-                          className="flex items-center gap-2"
-                        >
-                          <Mail className="h-3.5 w-3.5" />
-                          <span>Send Reminder</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleViewCustomerDetails(booking)}
-                          className="flex items-center gap-2"
-                        >
-                          <User className="h-3.5 w-3.5" />
-                          <span>Customer Details</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 </div>
               ))}

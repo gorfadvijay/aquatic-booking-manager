@@ -1,6 +1,5 @@
-
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -31,8 +30,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, LockIcon } from "lucide-react";
+import { Loader2, LockIcon, DatabaseIcon, CheckCircleIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { createBooking } from "@/lib/services/api/booking-api.service";
 
 const formSchema = z.object({
   paymentMethod: z.enum(["card", "paypal"]),
@@ -51,8 +52,67 @@ const formSchema = z.object({
 
 const Payment = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [bookingDetails, setBookingDetails] = useState({
+    startDate: new Date(),
+    selectedTimeSlot: "9:00 AM - 10:00 AM", // Default value
+    selectedTimeSlotId: null, // Store the selected time slot ID
+    baseSlotId: null, // Store the base slot ID
+    daysInfo: [
+      // Default values in case no state is passed
+      { date: new Date(), slot: { id: "demo-slot-1" } },
+      { date: new Date(Date.now() + 86400000), slot: { id: "demo-slot-2" } },
+      { date: new Date(Date.now() + 172800000), slot: { id: "demo-slot-3" } }
+    ],
+    id: `user-${Math.random().toString(36).substring(2, 9)}` // Demo user ID
+  });
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [slotIds, setSlotIds] = useState<string[]>([]);
+
+  // Get booking information from location state
+  useEffect(() => {
+    if (location.state?.bookingDetails) {
+      setBookingDetails(location.state.bookingDetails);
+      
+      // Extract slot IDs from the daysInfo array
+      const extractedSlotIds = location.state.bookingDetails.daysInfo
+        .filter((day: any) => day.slot?.id)
+        .map((day: any) => day.slot.id);
+      
+      setSlotIds(extractedSlotIds);
+      
+      console.log("------- SELECTED SLOT DETAILS -------");
+      console.log("Selected time slot:", location.state.bookingDetails.selectedTimeSlot);
+      console.log("Selected time slot ID:", location.state.bookingDetails.selectedTimeSlotId);
+      console.log("Base slot ID:", location.state.bookingDetails.baseSlotId);
+      console.log("Slot IDs for all days:", extractedSlotIds);
+      console.log("User ID:", location.state.bookingDetails.id);
+      console.log("------------------------------------");
+    }
+  }, [location]);
+
+  // Load user data from localStorage
+  useEffect(() => {
+    // Try to get user data from localStorage first
+    try {
+      const userData = localStorage.getItem('userData');
+      const userId = localStorage.getItem('userId');
+      
+      if (userData) {
+        const parsedUserData = JSON.parse(userData);
+        console.log("User data loaded from localStorage:", parsedUserData);
+        setCurrentUser(parsedUserData);
+      } else if (userId) {
+        // If we only have the ID, create a minimal user object
+        console.log("User ID loaded from localStorage:", userId);
+        setCurrentUser({ id: userId });
+      }
+    } catch (error) {
+      console.error("Error parsing user data from localStorage:", error);
+    }
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -81,15 +141,97 @@ const Payment = () => {
     console.log(values);
     setIsProcessing(true);
 
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      toast({
-        title: "Payment successful",
-        description: "Your booking has been confirmed.",
-      });
-      navigate("/customer/invoice/123"); // Navigate to the invoice page
-    }, 2000);
+    // Get user data from localStorage
+    const localStorageUserId = localStorage.getItem('userId');
+    const userName = localStorage.getItem('userName') || 'Guest';
+    const userEmail = localStorage.getItem('userEmail') || 'guest@example.com';
+    const userPhone = localStorage.getItem('userPhone') || '';
+    
+    // Create a booking in the database
+    const processBooking = async () => {
+      try {
+        // Prepare user data
+        const userData = {
+          name: userName,
+          email: userEmail,
+          phone: userPhone,
+          dob: new Date().toISOString()
+        };
+        
+        // Extract time from the timeSlot string (e.g., "9:00 AM - 10:00 AM" -> "09:00")
+        const timeSlotParts = bookingDetails.selectedTimeSlot.split(' - ');
+        const startTimeStr = timeSlotParts[0]; // e.g., "9:00 AM"
+        let hour = parseInt(startTimeStr.split(':')[0]);
+        const minute = parseInt(startTimeStr.split(':')[1].split(' ')[0]);
+        const period = startTimeStr.split(' ')[1]; // AM or PM
+        
+        // Convert to 24-hour format
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
+        
+        const formattedStartTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        
+        // For end time, we can use the slot duration if available, otherwise assume 1 hour
+        const slotDuration = (bookingDetails.daysInfo[0]?.slot as any)?.slot_duration || 60;
+        const endHour = Math.floor(hour + slotDuration / 60);
+        const endMinute = minute + (slotDuration % 60);
+        const formattedEndTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+        
+        console.log("------- CREATING BOOKINGS -------");
+        // For each day in the booking, create a separate booking entry
+        for (const dayInfo of bookingDetails.daysInfo) {
+          if (dayInfo.slot?.id) {
+            const bookingDate = format(new Date(dayInfo.date), 'yyyy-MM-dd');
+            
+            await createBooking(
+              userData,
+              dayInfo.slot.id,
+              bookingDate,
+              formattedStartTime,
+              formattedEndTime
+            );
+            
+            console.log(`Created booking for date: ${bookingDate}, slot: ${dayInfo.slot.id}`);
+          }
+        }
+        
+        console.log("------- PAYMENT SUCCESS -------");
+        console.log("User ID:", localStorageUserId || bookingDetails.id);
+        console.log("User Name:", userName);
+        console.log("User Email:", userEmail);
+        console.log("Selected Time Slot:", bookingDetails.selectedTimeSlot);
+        console.log("Selected Time Slot ID:", bookingDetails.selectedTimeSlotId);
+        console.log("Base Slot ID:", bookingDetails.baseSlotId);
+        console.log("Slot IDs for all days:", slotIds);
+        console.log("-----------------------------");
+        
+        toast({
+          title: "Payment successful",
+          description: "Your booking has been confirmed.",
+        });
+        
+        // Navigate to booking success page after a short delay
+        setTimeout(() => {
+          navigate("/customer/booking-success", { 
+            state: { 
+              bookingDetails,
+              paymentReference: `payment-${Date.now()}`,
+              slotIds,
+              userId: localStorageUserId || bookingDetails.id
+            } 
+          });
+        }, 1500);
+      } catch (error) {
+        console.error("Error creating booking:", error);
+        toast({
+          title: "Error creating booking",
+          description: "There was a problem confirming your booking. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    processBooking();
   }
 
   return (
@@ -297,6 +439,123 @@ const Payment = () => {
                           </>
                         )}
                       </Button>
+                      
+                      <div className="flex gap-4 mt-4">
+                        <Button 
+                          type="button" 
+                          className="w-1/2 bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                          onClick={() => {
+                            // Get user data from localStorage
+                            const localStorageUserId = localStorage.getItem('userId');
+                            const userName = localStorage.getItem('userName') || 'Guest';
+                            const userEmail = localStorage.getItem('userEmail') || 'guest@example.com';
+                            const userPhone = localStorage.getItem('userPhone') || '';
+                            
+                            // Create a booking in the database
+                            const processBooking = async () => {
+                              try {
+                                // Prepare user data
+                                const userData = {
+                                  name: userName,
+                                  email: userEmail,
+                                  phone: userPhone,
+                                  dob: new Date().toISOString()
+                                };
+                                
+                                // Extract time from the timeSlot string (e.g., "9:00 AM - 10:00 AM" -> "09:00")
+                                const timeSlotParts = bookingDetails.selectedTimeSlot.split(' - ');
+                                const startTimeStr = timeSlotParts[0]; // e.g., "9:00 AM"
+                                let hour = parseInt(startTimeStr.split(':')[0]);
+                                const minute = parseInt(startTimeStr.split(':')[1].split(' ')[0]);
+                                const period = startTimeStr.split(' ')[1]; // AM or PM
+                                
+                                // Convert to 24-hour format
+                                if (period === 'PM' && hour !== 12) hour += 12;
+                                if (period === 'AM' && hour === 12) hour = 0;
+                                
+                                const formattedStartTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+                                
+                                // For end time, we can use the slot duration if available, otherwise assume 1 hour
+                                const slotDuration = (bookingDetails.daysInfo[0]?.slot as any)?.slot_duration || 60;
+                                const endHour = Math.floor(hour + slotDuration / 60);
+                                const endMinute = minute + (slotDuration % 60);
+                                const formattedEndTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+                                
+                                console.log("------- CREATING BOOKINGS -------");
+                                // For each day in the booking, create a separate booking entry
+                                for (const dayInfo of bookingDetails.daysInfo) {
+                                  if (dayInfo.slot?.id) {
+                                    const bookingDate = format(new Date(dayInfo.date), 'yyyy-MM-dd');
+                                    
+                                    await createBooking(
+                                      userData,
+                                      dayInfo.slot.id,
+                                      bookingDate,
+                                      formattedStartTime,
+                                      formattedEndTime
+                                    );
+                                    
+                                    console.log(`Created booking for date: ${bookingDate}, slot: ${dayInfo.slot.id}`);
+                                  }
+                                }
+                                
+                                console.log("------- PAYMENT SUCCESS -------");
+                                console.log("User ID:", localStorageUserId || bookingDetails.id);
+                                console.log("User Name:", userName);
+                                console.log("User Email:", userEmail);
+                                console.log("Selected Time Slot:", bookingDetails.selectedTimeSlot);
+                                console.log("Selected Time Slot ID:", bookingDetails.selectedTimeSlotId);
+                                console.log("Base Slot ID:", bookingDetails.baseSlotId);
+                                console.log("Slot IDs for all days:", slotIds);
+                                console.log("-----------------------------");
+                                
+                                toast({
+                                  title: "Payment successful",
+                                  description: "Your booking has been confirmed.",
+                                });
+                                
+                                // Navigate to booking success page
+                                navigate("/customer/booking-success", { 
+                                  state: { 
+                                    bookingDetails,
+                                    paymentReference: `payment-${Date.now()}`,
+                                    slotIds,
+                                    userId: localStorageUserId || bookingDetails.id
+                                  } 
+                                });
+                              } catch (error) {
+                                console.error("Error creating booking:", error);
+                                toast({
+                                  title: "Error creating booking",
+                                  description: "There was a problem confirming your booking. Please try again.",
+                                  variant: "destructive",
+                                });
+                              }
+                            };
+                            
+                            processBooking();
+                          }}
+                        >
+                          <CheckCircleIcon className="h-4 w-4 mr-1" />
+                          Payment Success
+                        </Button>
+                        <Button 
+                          type="button" 
+                          className="w-1/2 bg-red-600 hover:bg-red-700"
+                          onClick={() => {
+                            toast({
+                              title: "Payment failed",
+                              description: "There was an issue processing your payment. Please try again.",
+                              variant: "destructive",
+                            });
+                            
+                            // Navigate to payment fail page
+                            navigate("/customer/payment-fail");
+                          }}
+                        >
+                          Payment Fail
+                        </Button>
+                      </div>
                     </div>
                   </form>
                 </Form>
@@ -314,10 +573,41 @@ const Payment = () => {
                   <div className="border-b pb-4">
                     <div className="font-medium mb-2">3-Day Swimming Analysis</div>
                     <div className="text-sm text-muted-foreground mb-1">
-                      April 22-24, 2023
+                      {format(new Date(bookingDetails.daysInfo[0]?.date || new Date()), "MMMM d")} - 
+                      {format(new Date(bookingDetails.daysInfo[2]?.date || new Date(Date.now() + 172800000)), "MMMM d, yyyy")}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      9:00 AM - 10:00 AM
+                      {bookingDetails.selectedTimeSlot || "9:00 AM - 10:00 AM"}
+                    </div>
+                  </div>
+
+                  {/* User Information Section */}
+                  <div className="border-b pb-4">
+                    <div className="font-medium mb-2">User Information</div>
+                    <div className="text-sm text-muted-foreground">
+                      Name: {localStorage.getItem('userName') || 'Not available'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Email: {localStorage.getItem('userEmail') || 'Not available'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      User ID: {localStorage.getItem('userId') || bookingDetails.id || 'Not available'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Experience: {localStorage.getItem('userSwimmingExperience') || 'Not available'}
+                    </div>
+                  </div>
+
+                  <div className="border-b pb-4">
+                    <div className="font-medium mb-2">Booking Information</div>
+                    <div className="text-sm text-muted-foreground">
+                      Time Slot: {bookingDetails.selectedTimeSlot}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Time Slot ID: {bookingDetails.selectedTimeSlotId ? bookingDetails.selectedTimeSlotId.substring(0, 10) + '...' : 'Not available'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Number of Days: {bookingDetails.daysInfo.length}
                     </div>
                   </div>
 
