@@ -323,9 +323,7 @@ const Reports = () => {
             <div className="text-3xl font-bold">
               {loading ? "..." : bookingStats.totalBookings}
             </div>
-            <div className="text-xs text-green-500 font-medium mt-2">
-              +15% from previous {reportType}
-            </div>
+          
           </CardContent>
         </Card>
       </div>

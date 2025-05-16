@@ -1,93 +1,131 @@
 import { Booking, UUID, BookingStatus } from '@/types/schema';
 import { storage, timestamp, generateId } from './storage';
+import { supabase } from '../supabase';
 
 export const BookingService = {
-  create: (booking: Omit<Booking, 'id' | 'created_at'>): Booking => {
-    const id = generateId();
-    const newBooking: Booking = {
-      ...booking,
-      id,
-      created_at: timestamp()
-    };
-    storage.bookings.set(id, newBooking);
-    return newBooking;
+  create: async (booking: Omit<Booking, 'id' | 'created_at'>): Promise<Booking> => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert([booking])
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return data as Booking;
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      throw error;
+    }
   },
 
-  getById: (id: UUID): Booking | undefined => {
-    return storage.bookings.get(id);
+  getById: async (id: UUID): Promise<Booking | undefined> => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (error) throw error;
+      return data as Booking;
+    } catch (error) {
+      console.error('Error getting booking by ID:', error);
+      return undefined;
+    }
   },
   
-  getByUserId: (userId: UUID): Booking[] => {
-    return Array.from(storage.bookings.values())
-      .filter(booking => booking.user_id === userId);
-  },
-  
-  getByDate: (date: string): Booking[] => {
-    return Array.from(storage.bookings.values())
-      .filter(booking => booking.booking_date === date);
-  },
-  
-  getBySlotId: (slotId: UUID): Booking[] => {
-    return Array.from(storage.bookings.values())
-      .filter(booking => booking.slot_id === slotId);
-  },
-  
-  getActiveBookingsForSlot: (slotId: UUID): Booking[] => {
-    // Get bookings that are not cancelled or completed
-    return Array.from(storage.bookings.values())
-      .filter(booking => 
-        booking.slot_id === slotId && 
-        (booking.status === 'booked' || booking.status === 'rescheduled') &&
-        new Date(booking.booking_date) >= new Date() // Future date
-      );
+  getBookingsBySlotId: async (slotId: UUID): Promise<Booking[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('slot_id', slotId);
+        
+      if (error) throw error;
+      return data as Booking[];
+    } catch (error) {
+      console.error('Error getting bookings by slot ID:', error);
+      return [];
+    }
   },
 
-  getAllFuture: (): Booking[] => {
-    const now = new Date();
-    return Array.from(storage.bookings.values())
-      .filter(booking => new Date(booking.booking_date) >= now);
-  },
-  
-  getAll: (): Booking[] => {
-    return Array.from(storage.bookings.values());
-  },
-  
-  update: (id: UUID, data: Partial<Booking>): Booking | undefined => {
-    const booking = storage.bookings.get(id);
-    if (!booking) return undefined;
-    
-    const updatedBooking = { ...booking, ...data };
-    storage.bookings.set(id, updatedBooking);
-    return updatedBooking;
-  },
-  
-  cancel: (id: UUID, reason: string): Booking | undefined => {
-    const booking = storage.bookings.get(id);
-    if (!booking) return undefined;
-    
-    const cancelledBooking = { 
-      ...booking, 
-      status: 'cancelled' as const,
-      cancel_reason: reason 
-    };
-    storage.bookings.set(id, cancelledBooking);
-    return cancelledBooking;
-  },
-  
-  reschedule: (id: UUID, newBookingId: UUID): Booking | undefined => {
-    const booking = storage.bookings.get(id);
-    if (!booking) return undefined;
-    
-    const rescheduledBooking = { 
-      ...booking, 
-      status: 'rescheduled' as const,
-      rescheduled_to: newBookingId 
-    };
-    storage.bookings.set(id, rescheduledBooking);
-    return rescheduledBooking;
+  getByUserId: async (userId: UUID): Promise<Booking[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      return data as Booking[];
+    } catch (error) {
+      console.error('Error getting bookings by user ID:', error);
+      return [];
+    }
   },
 
-  delete: (id: UUID): boolean => {
-    return storage.bookings.delete(id);
+  getAllFutureBookings: async (): Promise<Booking[]> => {
+    try {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .gte('booking_date', today)
+        .order('booking_date', { ascending: true });
+        
+      if (error) throw error;
+      return data as Booking[];
+    } catch (error) {
+      console.error('Error getting future bookings:', error);
+      return [];
+    }
+  },
+
+  getAll: async (): Promise<Booking[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .order('booking_date', { ascending: false });
+        
+      if (error) throw error;
+      return data as Booking[];
+    } catch (error) {
+      console.error('Error getting all bookings:', error);
+      return [];
+    }
+  },
+
+  update: async (id: UUID, data: Partial<Booking>): Promise<Booking | undefined> => {
+    try {
+      const { data: updatedData, error } = await supabase
+        .from('bookings')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+        
+      if (error) throw error;
+      return updatedData as Booking;
+    } catch (error) {
+      console.error('Error updating booking:', error);
+      return undefined;
+    }
+  },
+
+  delete: async (id: UUID): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .delete()
+        .eq('id', id);
+        
+      return !error;
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      return false;
+    }
   }
 }; 

@@ -124,9 +124,7 @@ const AdminDashboard = () => {
                     <Calendar className="h-5 w-5" />
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-2">
-                  +15% from last month
-                </div>
+               
               </CardContent>
             </Card>
 
@@ -143,9 +141,7 @@ const AdminDashboard = () => {
                     <Users className="h-5 w-5" />
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-2">
-                  +5% from last month
-                </div>
+           
               </CardContent>
             </Card>
 
@@ -157,14 +153,12 @@ const AdminDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <div className="text-3xl font-bold">${stats.revenue.toLocaleString()}</div>
+                  <div className="text-3xl font-bold">₹ {stats.revenue.toLocaleString()}</div>
                   <div className="bg-primary/10 text-primary p-2 rounded">
                     <FileText className="h-5 w-5" />
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-2">
-                  +12% from last month
-                </div>
+               
               </CardContent>
             </Card>
           </div>

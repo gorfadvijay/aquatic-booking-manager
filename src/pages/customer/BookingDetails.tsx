@@ -242,7 +242,21 @@ const BookingDetails = () => {
     return `${formatTime(startTime)} - ${formatTime(endTime)}`;
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, booking?: Booking) => {
+    // Check if this is a past booking (in the past bookings tab)
+    const isPastBooking = booking && (() => {
+      const now = new Date();
+      const [endHours, endMinutes] = booking.end_time.split(':').map(Number);
+      const bookingEndDateTime = new Date(booking.booking_date);
+      bookingEndDateTime.setHours(endHours, endMinutes, 0, 0);
+      return bookingEndDateTime <= now;
+    })();
+
+    // For past bookings, show "Completed" badge unless it's specifically marked as cancelled or no-show
+    if (isPastBooking && !["cancelled", "no-show"].includes(status?.toLowerCase())) {
+      return <Badge className="bg-green-500">Completed</Badge>;
+    }
+
     switch (status?.toLowerCase()) {
       case "completed":
         return <Badge className="bg-green-500">Completed</Badge>;
@@ -260,12 +274,11 @@ const BookingDetails = () => {
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <div>
-          
             <CardDescription>
               {format(new Date(booking.booking_date), "EEEE, MMMM d, yyyy")}
             </CardDescription>
           </div>
-          {getStatusBadge(booking.status)}
+          {getStatusBadge(booking.status, booking)}
         </div>
       </CardHeader>
       <CardContent>
@@ -354,7 +367,7 @@ const BookingDetails = () => {
                     Reference #{currentBooking.id}
                   </CardDescription>
                 </div>
-                {getStatusBadge(currentBooking.status)}
+                {getStatusBadge(currentBooking.status, currentBooking)}
               </div>
             </CardHeader>
             <CardContent>

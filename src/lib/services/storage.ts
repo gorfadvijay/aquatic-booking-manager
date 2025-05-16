@@ -1,3 +1,7 @@
+// =============== DEPRECATED - NOT USED =============== //
+//    This file is kept for reference but is not used in production   //
+// ======================================================== //
+
 import { v4 as uuidv4 } from 'uuid';
 import { format } from 'date-fns';
 import { 
@@ -22,8 +26,8 @@ export const storage = {
   notifications: new Map<UUID, Notification>(),
 };
 
-// Helper function to create timestamps
-export const timestamp = () => new Date().toISOString();
+// Helper to get current timestamp
+export const timestamp = () => format(new Date(), "yyyy-MM-dd'T'HH:mm:ss'Z'");
 
 // Helper function to generate UUIDs
 export const generateId = () => uuidv4(); 

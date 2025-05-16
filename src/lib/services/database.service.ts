@@ -1,6 +1,5 @@
-import { supabase, isSupabaseConfigured } from '../supabase';
-import { storage } from './storage';
-import { User, Slot, SlotException, Booking, Payment, Invoice, Notification, UUID } from '@/types/schema';
+import { supabase } from '../supabase';
+import { User, UUID } from '@/types/schema';
 
 // Helper to handle errors
 function handleError(error: any, fallback: any = null) {
@@ -11,10 +10,6 @@ function handleError(error: any, fallback: any = null) {
 // User database operations
 export const UserDatabase = {
   async getById(id: UUID): Promise<User | undefined> {
-    if (!isSupabaseConfigured()) {
-      return storage.users.get(id);
-    }
-
     try {
       const { data, error } = await supabase
         .from('users')
@@ -30,10 +25,6 @@ export const UserDatabase = {
   },
 
   async getByEmail(email: string): Promise<User | undefined> {
-    if (!isSupabaseConfigured()) {
-      return Array.from(storage.users.values()).find(user => user.email === email);
-    }
-
     try {
       console.log(`Looking for user with email: ${email}`);
       const { data, error } = await supabase
@@ -52,17 +43,6 @@ export const UserDatabase = {
   },
 
   async create(user: Omit<User, 'id' | 'created_at'>): Promise<User> {
-    if (!isSupabaseConfigured()) {
-      const id = crypto.randomUUID();
-      const newUser: User = {
-        ...user,
-        id,
-        created_at: new Date().toISOString()
-      };
-      storage.users.set(id, newUser);
-      return newUser;
-    }
-
     try {
       console.log('Creating user in Supabase:', user);
       
@@ -120,27 +100,11 @@ export const UserDatabase = {
       return createdUser;
     } catch (error) {
       console.error('Error creating user:', error);
-      // Fallback to creating a user locally with an error ID
-      const id = crypto.randomUUID();
-      const newUser: User = {
-        ...user,
-        id,
-        created_at: new Date().toISOString()
-      };
-      return newUser;
+      throw error;
     }
   },
 
   async update(id: UUID, data: Partial<User>): Promise<User | undefined> {
-    if (!isSupabaseConfigured()) {
-      const user = storage.users.get(id);
-      if (!user) return undefined;
-      
-      const updatedUser = { ...user, ...data };
-      storage.users.set(id, updatedUser);
-      return updatedUser;
-    }
-
     try {
       const { data: updatedData, error } = await supabase
         .from('users')
@@ -157,11 +121,6 @@ export const UserDatabase = {
   },
 
   async delete(id: UUID): Promise<{ error: Error | null }> {
-    if (!isSupabaseConfigured()) {
-      const success = storage.users.delete(id);
-      return { error: success ? null : new Error('User not found') };
-    }
-
     try {
       const { error } = await supabase
         .from('users')
@@ -175,10 +134,6 @@ export const UserDatabase = {
   },
 
   async getAll(): Promise<User[]> {
-    if (!isSupabaseConfigured()) {
-      return Array.from(storage.users.values());
-    }
-
     try {
       const { data, error } = await supabase
         .from('users')

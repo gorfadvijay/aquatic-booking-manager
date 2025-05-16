@@ -1,3 +1,7 @@
+// =============== DEPRECATED - NOT USED =============== //
+//    This file is kept for reference but is not used in production   //
+// ======================================================== //
+
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
 import { storage, timestamp } from './storage';

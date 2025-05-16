@@ -41,10 +41,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Calendar, Users } from "lucide-react";
-import { getSlotById, updateSlot } from "@/lib/db";
 import { Slot, Booking } from "@/types/schema";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
+import { SlotService } from "@/lib/services/slot.service";
+import { BookingService } from "@/lib/services/booking.service";
 
 // Import the modified EnrichedBooking interface to handle the additional properties
 interface EnrichedBooking extends Booking {
@@ -103,184 +104,129 @@ const EditSlots = () => {
   useEffect(() => {
     const fetchSlotData = async () => {
       try {
-        if (!id) return;
+        setLoading(true);
         
-        // In a real app with a complete API connection, we would:
-        // 1. Get all slots
-        const slots = await getSlotById("placeholder"); // This would be the actual slot ID
-        // 2. Find the one matching our day
-        
-        // For now, we'll use a workaround with day-based lookups
-        const allSlots = await getAllSlots();
-        const matchingSlot = allSlots.find(slot => slot.day_of_week === dayName);
-        
-        if (matchingSlot) {
-          setSlot(matchingSlot);
-          
-          // Set form values based on the slot data
-          form.reset({
-            dayName: matchingSlot.day_of_week,
-            startTime: matchingSlot.is_holiday ? "" : matchingSlot.start_time,
-            endTime: matchingSlot.is_holiday ? "" : matchingSlot.end_time,
-            slotDuration: "60", // This would come from a slot_duration field if available
-            isHoliday: matchingSlot.is_holiday,
-            holidayReason: matchingSlot.is_holiday ? "Weekend" : "",
-          });
+        // If id is provided, fetch the specific slot
+        if (id && !isNaN(parseInt(id))) {
+          const slotData = await SlotService.getById(id);
+          if (slotData) {
+            setSlot(slotData);
+            form.reset({
+              isHoliday: slotData.is_holiday,
+              startTime: slotData.start_time || '',
+              endTime: slotData.end_time || ''
+            });
+          } else {
+            toast({
+              title: "Slot not found",
+              description: "The requested slot could not be found",
+              variant: "destructive",
+            });
+            navigate("/admin/slots");
+          }
+        } 
+        // If dayName is provided, fetch by day of week
+        else if (dayName) {
+          const slotByDay = await SlotService.getByDayOfWeek(dayName);
+          if (slotByDay) {
+            setSlot(slotByDay);
+            form.reset({
+              isHoliday: slotByDay.is_holiday,
+              startTime: slotByDay.start_time || '',
+              endTime: slotByDay.end_time || ''
+            });
+          } else {
+            toast({
+              title: "Day schedule not found",
+              description: `No schedule found for ${dayName}`,
+              variant: "destructive",
+            });
+            navigate("/admin/slots");
+          }
         }
       } catch (error) {
-        console.error("Error fetching slot data:", error);
         toast({
-          title: "Error",
-          description: "Failed to load slot data",
+          title: "Error loading slot data",
+          description: "Failed to load the slot information",
           variant: "destructive",
         });
+        console.error("Error fetching slot data:", error);
+        navigate("/admin/slots");
       } finally {
         setLoading(false);
       }
     };
 
     fetchSlotData();
-  }, [id, dayName, form, toast]);
+  }, [id, dayName, form, toast, navigate]);
 
   // Mock function to get all slots - in a real app this would come from your API
   async function getAllSlots() {
-    // This is for testing purposes - in a real app, this would be replaced with api.getAllSlots()
-    return [
-      {
-        id: "1",
-        day_of_week: "Monday",
-        start_time: "09:00",
-        end_time: "17:00",
-        is_holiday: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "2",
-        day_of_week: "Tuesday",
-        start_time: "09:00",
-        end_time: "17:00",
-        is_holiday: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "3",
-        day_of_week: "Wednesday",
-        start_time: "09:00",
-        end_time: "17:00",
-        is_holiday: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "4",
-        day_of_week: "Thursday",
-        start_time: "09:00",
-        end_time: "17:00",
-        is_holiday: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "5",
-        day_of_week: "Friday",
-        start_time: "09:00",
-        end_time: "17:00",
-        is_holiday: false,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "6",
-        day_of_week: "Saturday",
-        start_time: "",
-        end_time: "",
-        is_holiday: true,
-        created_at: new Date().toISOString()
-      },
-      {
-        id: "7",
-        day_of_week: "Sunday",
-        start_time: "",
-        end_time: "",
-        is_holiday: true,
-        created_at: new Date().toISOString()
-      }
-    ]
+    return await SlotService.getAll();
   }
 
   const isHoliday = form.watch("isHoliday");
   
-  // Mock conflicting booking data
-  const mockConflictingBookings = [
-    {
-      id: "booking1",
-      user_id: "user1",
-      slot_id: "slot1",
-      booking_date: "2023-04-24",
-      start_time: "14:00",
-      end_time: "15:00",
-      status: "booked" as const,
-      rescheduled_to: null,
-      cancel_reason: null,
-      created_at: new Date().toISOString(),
-      customerName: "John Smith",
-      email: "john.smith@example.com",
-      phone: "+1 (555) 123-4567",
-    },
-    {
-      id: "booking2",
-      user_id: "user2",
-      slot_id: "slot2",
-      booking_date: "2023-04-25",
-      start_time: "15:00",
-      end_time: "16:00",
-      status: "booked" as const,
-      rescheduled_to: null,
-      cancel_reason: null,
-      created_at: new Date().toISOString(),
-      customerName: "Sarah Johnson",
-      email: "sarah.j@example.com",
-      phone: "+1 (555) 987-6543",
-    },
-  ];
-  
-  function handleSubmit(values: z.infer<typeof formSchema>) {
-    // Check for conflicts with existing bookings
-    // In a real app, this would check for actual conflicts
-    setConflicts(mockConflictingBookings);
+  async function checkForConflictingBookings(slotId: string, newIsHoliday: boolean): Promise<any[]> {
+    // In a real implementation, you would fetch bookings that would be affected by this change
+    // For example, if marking as holiday, find all bookings on this day
     
-    if (mockConflictingBookings.length > 0) {
+    // This is a placeholder - replace with actual API call to your booking service
+    try {
+      // Example implementation:
+      // const bookings = await BookingService.getBookingsBySlotId(slotId);
+      // return bookings.filter(booking => (your conflict logic here));
+      
+      // For now, returning empty array (no conflicts)
+      return [];
+    } catch (error) {
+      console.error("Error checking for conflicting bookings:", error);
+      return [];
+    }
+  }
+  
+  async function handleSubmit(values: z.infer<typeof formSchema>) {
+    if (!slot) return;
+    
+    // Check for conflicts with existing bookings
+    const conflictingBookings = await checkForConflictingBookings(
+      slot.id, 
+      values.isHoliday
+    );
+    
+    setConflicts(conflictingBookings);
+    
+    if (conflictingBookings.length > 0) {
       setShowConflictDialog(true);
     } else {
       saveChanges(values);
     }
   }
 
-  function saveChanges(values: z.infer<typeof formSchema>) {
+  async function saveChanges(values: z.infer<typeof formSchema>) {
     console.log(values);
     
-    // In a real app with a connection to the mock DB, we would:
     if (slot) {
-      updateSlot(slot.id, {
-        is_holiday: values.isHoliday,
-        start_time: values.isHoliday ? "" : values.startTime,
-        end_time: values.isHoliday ? "" : values.endTime
-      }).then(({slot}) => {
+      try {
+        await SlotService.update(slot.id, {
+          is_holiday: values.isHoliday,
+          start_time: values.isHoliday ? "" : values.startTime,
+          end_time: values.isHoliday ? "" : values.endTime
+        });
+        
         toast({
           title: "Slots updated successfully",
           description: "The schedule has been updated.",
         });
         navigate("/admin/slots");
-      }).catch(error => {
+      } catch (error) {
         toast({
           title: "Error",
           description: "Failed to update slots",
           variant: "destructive",
         });
-      });
-    } else {
-      toast({
-        title: "Slots updated successfully",
-        description: "The schedule has been updated.",
-      });
-      navigate("/admin/slots");
+        console.error("Error updating slot:", error);
+      }
     }
   }
 

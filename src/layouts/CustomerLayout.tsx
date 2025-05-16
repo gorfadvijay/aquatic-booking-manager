@@ -4,15 +4,19 @@ import { cn } from "@/lib/utils";
 
 const CustomerLayout = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userName, setUserName] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
     // Check if user is logged in
     const userEmail = localStorage.getItem("userEmail");
-    const userName = localStorage.getItem("userName");
+    const storedUserName = localStorage.getItem("userName");
     const userId = localStorage.getItem("userId");
     
-    setIsLoggedIn(!!(userEmail || userName || userId));
+    setIsLoggedIn(!!(userEmail || storedUserName || userId));
+    if (storedUserName) {
+      setUserName(storedUserName);
+    }
   }, []);
 
   const handleLogout = () => {
@@ -30,6 +34,7 @@ const CustomerLayout = () => {
     
     // Set logged out state
     setIsLoggedIn(false);
+    setUserName("");
     
     // Redirect to home page
     navigate("/");
@@ -95,12 +100,17 @@ const CustomerLayout = () => {
 
           <div className="flex items-center gap-4">
             {isLoggedIn ? (
-              <button
-                onClick={handleLogout}
-                className="text-sm font-medium text-primary hover:text-primary/80"
-              >
-                Logout
-              </button>
+              <>
+                <span className="text-sm font-medium text-muted-foreground mr-2 border-r border-muted-foreground/30 pr-3">
+                  Welcome, {userName || "Customer"}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm font-medium text-primary hover:text-primary/80"
+                >
+                  Logout
+                </button>
+              </>
             ) : (
               <Link
                 to="/login"
