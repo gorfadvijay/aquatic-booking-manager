@@ -54,13 +54,14 @@ const step1Schema = z.object({
   }),
 });
 
+// Disabled validation for step 2 - make all fields optional
 const step2Schema = z.object({
-  address: z.string().min(1, { message: "Address is required" }),
-  city: z.string().min(1, { message: "City is required" }),
-  state: z.string().min(1, { message: "State is required" }),
-  zipCode: z.string().min(1, { message: "Zip code is required" }),
-  emergencyContactName: z.string().min(1, { message: "Emergency contact name is required" }),
-  emergencyContactPhone: z.string().min(10, { message: "Emergency contact phone must be at least 10 digits" }),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
 });
 
 // Combined schema for all fields
@@ -76,12 +77,12 @@ const formSchema = z.object({
   gender: z.enum(["male", "female", "other"], {
     required_error: "Please select a gender",
   }),
-  address: z.string().min(1, { message: "Address is required" }),
-  city: z.string().min(1, { message: "City is required" }),
-  state: z.string().min(1, { message: "State is required" }),
-  zipCode: z.string().min(1, { message: "Zip code is required" }),
-  emergencyContactName: z.string().min(1, { message: "Emergency contact name is required" }),
-  emergencyContactPhone: z.string().min(10, { message: "Emergency contact phone must be at least 10 digits" }),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  zipCode: z.string().optional(),
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
   swimmingExperience: z.enum(["beginner", "intermediate", "advanced"], {
     required_error: "Please select your swimming experience level",
   }),

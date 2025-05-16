@@ -5,16 +5,41 @@ import { supabase } from '../supabase';
 export const InvoiceService = {
   create: async (invoice: Omit<Invoice, 'id'>): Promise<Invoice> => {
     try {
+      console.log("InvoiceService: Attempting to create invoice:", invoice);
+      
+      // Verify the invoices table exists and we can access it
+      const { count, error: countError } = await supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true });
+      
+      if (countError) {
+        console.error("InvoiceService: Error accessing invoices table:", countError);
+        throw new Error(`Table access error: ${countError.message}`);
+      }
+      
+      console.log("InvoiceService: Successfully accessed invoices table, count:", count);
+      
+      // Now attempt to insert the invoice
       const { data, error } = await supabase
         .from('invoices')
         .insert([invoice])
         .select()
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error("InvoiceService: Insert error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
+      
+      console.log("InvoiceService: Invoice created successfully:", data);
       return data as Invoice;
     } catch (error) {
-      console.error('Error creating invoice:', error);
+      console.error('InvoiceService: Error creating invoice:', error);
       throw error;
     }
   },

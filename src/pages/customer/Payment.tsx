@@ -179,11 +179,12 @@ const Payment = () => {
         
         console.log("------- CREATING BOOKINGS -------");
         // For each day in the booking, create a separate booking entry
+        const createdBookingIds = [];
         for (const dayInfo of bookingDetails.daysInfo) {
           if (dayInfo.slot?.id) {
             const bookingDate = format(new Date(dayInfo.date), 'yyyy-MM-dd');
             
-            await createBooking(
+            const bookingResult = await createBooking(
               userData,
               dayInfo.slot.id,
               bookingDate,
@@ -191,7 +192,13 @@ const Payment = () => {
               formattedEndTime
             );
             
-            console.log(`Created booking for date: ${bookingDate}, slot: ${dayInfo.slot.id}`);
+            // Store the booking ID for later use
+            if (bookingResult && bookingResult.booking && bookingResult.booking.id) {
+              createdBookingIds.push(bookingResult.booking.id);
+              console.log(`Created booking for date: ${bookingDate}, slot: ${dayInfo.slot.id}, booking ID: ${bookingResult.booking.id}`);
+            } else {
+              console.log(`Created booking for date: ${bookingDate}, slot: ${dayInfo.slot.id}`);
+            }
           }
         }
         
@@ -203,6 +210,7 @@ const Payment = () => {
         console.log("Selected Time Slot ID:", bookingDetails.selectedTimeSlotId);
         console.log("Base Slot ID:", bookingDetails.baseSlotId);
         console.log("Slot IDs for all days:", slotIds);
+        console.log("Booking IDs:", createdBookingIds);
         console.log("-----------------------------");
         
         toast({
@@ -217,6 +225,7 @@ const Payment = () => {
               bookingDetails,
               paymentReference: `payment-${Date.now()}`,
               slotIds,
+              bookingIds: createdBookingIds, // Pass the booking IDs to the success page
               userId: localStorageUserId || bookingDetails.id
             } 
           });
@@ -483,11 +492,12 @@ const Payment = () => {
                                 
                                 console.log("------- CREATING BOOKINGS -------");
                                 // For each day in the booking, create a separate booking entry
+                                const createdBookingIds = [];
                                 for (const dayInfo of bookingDetails.daysInfo) {
                                   if (dayInfo.slot?.id) {
                                     const bookingDate = format(new Date(dayInfo.date), 'yyyy-MM-dd');
                                     
-                                    await createBooking(
+                                    const bookingResult = await createBooking(
                                       userData,
                                       dayInfo.slot.id,
                                       bookingDate,
@@ -495,7 +505,13 @@ const Payment = () => {
                                       formattedEndTime
                                     );
                                     
-                                    console.log(`Created booking for date: ${bookingDate}, slot: ${dayInfo.slot.id}`);
+                                    // Store the booking ID for later use
+                                    if (bookingResult && bookingResult.booking && bookingResult.booking.id) {
+                                      createdBookingIds.push(bookingResult.booking.id);
+                                      console.log(`Created booking for date: ${bookingDate}, slot: ${dayInfo.slot.id}, booking ID: ${bookingResult.booking.id}`);
+                                    } else {
+                                      console.log(`Created booking for date: ${bookingDate}, slot: ${dayInfo.slot.id}`);
+                                    }
                                   }
                                 }
                                 
@@ -507,6 +523,7 @@ const Payment = () => {
                                 console.log("Selected Time Slot ID:", bookingDetails.selectedTimeSlotId);
                                 console.log("Base Slot ID:", bookingDetails.baseSlotId);
                                 console.log("Slot IDs for all days:", slotIds);
+                                console.log("Booking IDs:", createdBookingIds);
                                 console.log("-----------------------------");
                                 
                                 toast({
@@ -520,6 +537,7 @@ const Payment = () => {
                                     bookingDetails,
                                     paymentReference: `payment-${Date.now()}`,
                                     slotIds,
+                                    bookingIds: createdBookingIds, // Pass the booking IDs to the success page
                                     userId: localStorageUserId || bookingDetails.id
                                   } 
                                 });
