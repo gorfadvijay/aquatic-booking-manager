@@ -11,12 +11,16 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, Calendar, Clock, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { BookingService } from "@/lib/services/booking.service";
+import { InvoiceService } from "@/lib/services/invoice.service";
+import { useToast } from "@/hooks/use-toast";
 
 const BookingSuccess = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { bookingDetails, paymentReference, slotIds } = location.state || {};
+  const { toast } = useToast();
+  const { bookingDetails, paymentReference, slotIds, bookingIds } = location.state || {};
   const [isLoading, setIsLoading] = useState(false);
+  const [invoiceId, setInvoiceId] = useState("");
 
   // If no state data was passed, we can use these default values
   const defaultBookingDetails = {
@@ -31,14 +35,97 @@ const BookingSuccess = () => {
   const displayBookingDetails = bookingDetails || defaultBookingDetails;
   const displayPaymentReference = paymentReference || "PAY-" + Math.random().toString(36).substring(2, 10).toUpperCase();
 
+  useEffect(() => {
+    // Generate invoice for the booking if bookingIds is provided
+    if (bookingIds && bookingIds.length > 0) {
+      generateInvoice(bookingIds[0]);
+    }
+  }, [bookingIds]);
+
+  const generateInvoice = async (bookingId) => {
+    if (!bookingId) return;
+
+    setIsLoading(true);
+    try {
+      // First, check if an invoice already exists for this booking
+      const existingInvoice = await InvoiceService.getByBookingId(bookingId);
+      
+      if (existingInvoice) {
+        setInvoiceId(existingInvoice.id);
+        return;
+      }
+
+      // Get the booking to determine the amount (in a real app this would be calculated from the booking details)
+      const booking = await BookingService.getById(bookingId);
+      if (!booking) {
+        toast({
+          title: "Error",
+          description: "Could not find booking information",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get userId from localStorage
+      const userId = localStorage.getItem("userId");
+      if (!userId) {
+        toast({
+          title: "Error",
+          description: "User information not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Calculate a demo amount (in a real app this would be based on actual pricing)
+      const amount = 149.99;
+
+      // Generate invoice number
+      const invoiceNumber = InvoiceService.generateInvoiceNumber();
+
+      // Create the invoice
+      const invoice = await InvoiceService.create({
+        booking_id: bookingId,
+        invoice_number: invoiceNumber,
+        generated_by: userId,
+        amount: amount,
+        generated_at: new Date().toISOString(),
+        sent_via_email: false,
+        sent_via_whatsapp: false
+      });
+
+      setInvoiceId(invoice.id);
+      
+      toast({
+        title: "Invoice Generated",
+        description: `Invoice #${invoiceNumber} has been created successfully.`,
+      });
+    } catch (error) {
+      console.error("Error generating invoice:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate invoice. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleViewInvoice = () => {
-    navigate("/customer/invoice/123", { 
-      state: { 
-        bookingDetails: displayBookingDetails,
-        paymentReference: displayPaymentReference,
-        slotIds
-      } 
-    });
+    // If we have a real invoice ID, navigate to it
+    if (invoiceId) {
+      navigate(`/customer/invoice/${invoiceId}`);
+    } else {
+      // Otherwise use the demo flow
+      navigate("/customer/invoice/123", { 
+        state: { 
+          bookingDetails: displayBookingDetails,
+          paymentReference: displayPaymentReference,
+          slotIds
+        } 
+      });
+    }
   };
 
   const handleBookAnother = () => {
@@ -58,8 +145,6 @@ const BookingSuccess = () => {
           </p>
         </div>
 
-   
-
         <div className="text-center space-y-3">
           <p className="text-muted-foreground mb-4">
             A confirmation email has been sent to your registered email address.
@@ -67,9 +152,14 @@ const BookingSuccess = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button onClick={handleViewInvoice} variant="outline" className="gap-2">
-              View Invoice
-              <ArrowRight className="h-4 w-4" />
+            <Button 
+              onClick={handleViewInvoice} 
+              variant="outline" 
+              className="gap-2"
+              disabled={isLoading}
+            >
+              {isLoading ? "Generating Invoice..." : "View Invoice"}
+              {!isLoading && <ArrowRight className="h-4 w-4" />}
             </Button>
             <Button onClick={handleBookAnother}>
               Book Another Session

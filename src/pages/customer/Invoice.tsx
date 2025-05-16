@@ -1,6 +1,5 @@
-
-import React from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useParams, useLocation } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -9,32 +8,146 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Mail, Printer } from "lucide-react";
+import { Download, Mail, Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { InvoiceService } from "@/lib/services/invoice.service";
+import { BookingService } from "@/lib/services/booking.service";
+import { format } from "date-fns";
 
 const Invoice = () => {
   const { id } = useParams<{ id: string }>();
   const { toast } = useToast();
+  const location = useLocation();
+  const [loading, setLoading] = useState(true);
+  const [invoiceData, setInvoiceData] = useState<any>(null);
+  const [bookingDetails, setBookingDetails] = useState<any>(null);
+  const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
 
-  const invoiceData = {
-    invoiceNumber: "INV-2023-" + id,
-    date: "April 22, 2023",
-    customerName: "John Doe",
-    customerEmail: "john.doe@example.com",
-    customerPhone: "+1 (555) 123-4567",
-    items: [
-      {
-        description: "3-Day Swimming Analysis Session",
-        details: "April 22-24, 2023 (9:00 AM - 10:00 AM)",
-        price: 149.99,
-      },
-    ],
-    subtotal: 149.99,
-    tax: 0.0,
-    total: 149.99,
-    paymentMethod: "Credit Card (VISA ****1234)",
-    paymentStatus: "Paid",
+  // Get user info from localStorage
+  useEffect(() => {
+    const userName = localStorage.getItem("userName") || "Customer";
+    const userEmail = localStorage.getItem("userEmail") || "customer@example.com";
+    setCustomerName(userName);
+    setCustomerEmail(userEmail);
+  }, []);
+
+  // Fetch invoice data from Supabase
+  useEffect(() => {
+    const fetchInvoiceData = async () => {
+      if (!id) return;
+      
+      try {
+        setLoading(true);
+        
+        // Check if the ID is the demo ID ("123")
+        if (id === "123") {
+          // Use demo data from location.state if available
+          if (location.state?.bookingDetails) {
+            const stateData = location.state;
+            setInvoiceData({
+              invoiceNumber: "INV-2023-" + id,
+              date: format(new Date(), "MMMM dd, yyyy"),
+              paymentMethod: "Credit Card",
+              paymentStatus: "Paid",
+              subtotal: 149.99,
+              tax: 0.0,
+              total: 149.99,
+              items: [
+                {
+                  description: "Swimming Analysis Session",
+                  details: `Sessions on selected dates`,
+                  price: 149.99,
+                },
+              ],
+            });
+            setBookingDetails(stateData.bookingDetails);
+          } else {
+            // Fallback demo data if nothing is in state
+            setInvoiceData({
+              invoiceNumber: "INV-2023-" + id,
+              date: format(new Date(), "MMMM dd, yyyy"),
+              paymentMethod: "Credit Card (VISA ****1234)",
+              paymentStatus: "Paid",
+              subtotal: 149.99,
+              tax: 0.0,
+              total: 149.99,
+              items: [
+                {
+                  description: "3-Day Swimming Analysis Session",
+                  details: `${format(new Date(), "MMMM dd, yyyy")} (9:00 AM - 10:00 AM)`,
+                  price: 149.99,
+                },
+              ],
+            });
+          }
+        } else {
+          // Fetch real invoice data from Supabase
+          const invoice = await InvoiceService.getById(id);
+          
+          if (!invoice) {
+            toast({
+              title: "Invoice not found",
+              description: "Could not find the requested invoice",
+              variant: "destructive",
+            });
+            return;
+          }
+          
+          // Fetch the associated booking
+          const booking = await BookingService.getById(invoice.booking_id);
+          if (booking) {
+            setBookingDetails(booking);
+          }
+          
+          // Set up invoice data
+          setInvoiceData({
+            invoiceNumber: invoice.invoice_number,
+            date: format(new Date(invoice.generated_at), "MMMM dd, yyyy"),
+            paymentMethod: "Credit Card",
+            paymentStatus: "Paid",
+            subtotal: invoice.amount,
+            tax: 0.0,
+            total: invoice.amount,
+            items: [
+              {
+                description: "Swimming Analysis Session",
+                details: booking ? `${format(new Date(booking.booking_date), "MMMM dd, yyyy")} (${formatTime(booking.start_time)} - ${formatTime(booking.end_time)})` : "Session booking",
+                price: invoice.amount,
+              },
+            ],
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching invoice:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load invoice details",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchInvoiceData();
+  }, [id, location.state, toast]);
+
+  const formatTime = (time: string) => {
+    // Convert "14:00:00" to "2:00 PM"
+    if (!time) return "";
+    
+    try {
+      const [hours, minutes] = time.split(":").map(Number);
+      return new Date(0, 0, 0, hours, minutes).toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch (error) {
+      return time;
+    }
   };
 
   const handleDownload = () => {
@@ -54,6 +167,28 @@ const Invoice = () => {
       description: "Your invoice has been sent to your email",
     });
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-12 flex justify-center items-center">
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-8 w-8 animate-spin mb-4" />
+          <p>Loading invoice details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!invoiceData) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Invoice Not Found</h2>
+          <p className="text-muted-foreground">The requested invoice could not be found</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-12 print:p-0">
@@ -96,12 +231,9 @@ const Invoice = () => {
                     Bill To:
                   </h3>
                   <div className="space-y-1">
-                    <p className="font-medium">{invoiceData.customerName}</p>
+                    <p className="font-medium">{customerName}</p>
                     <p className="text-sm text-muted-foreground">
-                      {invoiceData.customerEmail}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {invoiceData.customerPhone}
+                      {customerEmail}
                     </p>
                   </div>
                 </div>
