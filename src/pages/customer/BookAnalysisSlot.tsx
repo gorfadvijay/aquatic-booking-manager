@@ -43,6 +43,7 @@ interface TimeSlotPeriod {
   endTime: Date;
   formatted: string;
   isAvailable: boolean;
+  unavailableReason?: "booked" | "past" | null;
 }
 
 const BookAnalysisSlot = () => {
@@ -93,15 +94,15 @@ const BookAnalysisSlot = () => {
       duration: slot.slot_duration
     });
     
-          // Debug: Log existing bookings with more details
-      console.log("Existing bookings for this date:", existingBookings.map(booking => ({
-        id: booking.id,
-        date: booking.booking_date,
-        time: `${booking.start_time}-${booking.end_time}`,
-        formattedTime: `${booking.start_time.split(':').slice(0, 2).join(':')}-${booking.end_time.split(':').slice(0, 2).join(':')}`,
-        slot_id: booking.slot_id,
-        rawData: booking
-      })));
+    // Debug: Log existing bookings with more details
+    console.log("Existing bookings for this date:", existingBookings.map(booking => ({
+      id: booking.id,
+      date: booking.booking_date,
+      time: `${booking.start_time}-${booking.end_time}`,
+      formattedTime: `${booking.start_time.split(':').slice(0, 2).join(':')}-${booking.end_time.split(':').slice(0, 2).join(':')}`,
+      slot_id: booking.slot_id,
+      rawData: booking
+    })));
 
     const [startHour, startMinute] = slot.start_time.split(':').map(Number);
     const [endHour, endMinute] = slot.end_time.split(':').map(Number);
@@ -118,6 +119,10 @@ const BookAnalysisSlot = () => {
     
     // Format the date as yyyy-MM-dd for comparison with bookings
     const formattedDate = format(dateObj, 'yyyy-MM-dd');
+    
+    // Check if this date is today
+    const isToday = isSameDay(dateObj, new Date());
+    const currentDateTime = new Date();
     
     while (currentTime.getTime() + durationMinutes * 60000 <= endDate.getTime()) {
       const slotEndTime = new Date(currentTime.getTime() + durationMinutes * 60000);
@@ -185,17 +190,26 @@ const BookAnalysisSlot = () => {
         return isMatch;
       });
       
-      const isAvailable = !isBooked;
+      // Check if the time slot is in the past (for today only)
+      const isPastTimeSlot = isToday && currentTime < currentDateTime;
+      
+      // A slot is only available if it's not booked AND not in the past
+      const isAvailable = !isBooked && !isPastTimeSlot;
+      
+      // Keep track of why the slot is unavailable (for display purposes)
+      const unavailableReason = isBooked ? "booked" : (isPastTimeSlot ? "past" : null);
       
       // Debug: Log the availability result
-      console.log(`Time slot ${currentTimeFormatted} isAvailable:`, isAvailable);
+      console.log(`Time slot ${currentTimeFormatted} isAvailable:`, isAvailable, 
+        isAvailable ? "" : `(Reason: ${unavailableReason})`);
       
       slots.push({
         id: `${slot.id}-${format(currentTime, 'HHmm')}`,
         startTime: new Date(currentTime),
         endTime: new Date(slotEndTime),
         formatted: `${format(currentTime, 'h:mm a')} - ${format(slotEndTime, 'h:mm a')}`,
-        isAvailable
+        isAvailable,
+        unavailableReason
       });
       
       // Move to next time slot
@@ -534,7 +548,7 @@ const BookAnalysisSlot = () => {
               ) : (
                 <div className="space-y-6">
                   {/* Time slot selection */}
-                <div className="space-y-4">
+                  <div className="space-y-4">
                     <h3 className="font-medium">Select a Time</h3>
                     <p className="text-sm text-muted-foreground mb-4">
                       The selected time will be applied to all 3 days of your analysis.
@@ -542,53 +556,71 @@ const BookAnalysisSlot = () => {
                     
                     {/* Show time slots from the first day that has slots */}
                     {consecutiveDaysInfo.some(day => day.slot) && (
-                  <div className="grid grid-cols-2 gap-2">
-                        {timeSlots[format(consecutiveDaysInfo[0].date, 'yyyy-MM-dd')]?.map((timeSlot) => (
-                          console.log(timeSlot,"timeSlot"),
-                      <div
-                            key={timeSlot.id}
-                        className={cn(
-                              "p-3 border rounded-md",
-                              !timeSlot.isAvailable && "opacity-60",
-                              timeSlot.isAvailable && "cursor-pointer hover:border-primary",
-                              selectedTimeSlot === timeSlot.id && 
-                                "border-primary bg-primary/5 ring-1 ring-primary",
-                              !timeSlot.isAvailable && selectedTimeSlot === timeSlot.id && 
-                                "border-red-300 bg-red-50"
-                        )}
-                        onClick={() => {
-                              if (timeSlot.isAvailable) {
-                                handleTimeSlotSelection(timeSlot.id);
-                          }
-                        }}
-                      >
-                            <div className="flex justify-between items-center">
-                              <span className={cn(
-                                "font-medium",
-                                selectedTimeSlot === timeSlot.id && "text-primary",
-                                !timeSlot.isAvailable && "text-red-600"
-                              )}>
-                                {timeSlot.formatted}
-                              </span>
-                              {timeSlot.isAvailable ? (
-                                <Check className="h-4 w-4 text-green-500" />
-                              ) : (
-                                <X className="h-4 w-4 text-red-500" />
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          {timeSlots[format(consecutiveDaysInfo[0].date, 'yyyy-MM-dd')]?.map((timeSlot) => (
+                            <div
+                              key={timeSlot.id}
+                              className={cn(
+                                "p-3 border rounded-md",
+                                !timeSlot.isAvailable && "opacity-60",
+                                timeSlot.isAvailable && "cursor-pointer hover:border-primary",
+                                selectedTimeSlot === timeSlot.id && 
+                                  "border-primary bg-primary/5 ring-1 ring-primary",
+                                !timeSlot.isAvailable && timeSlot.unavailableReason === "booked" && "border-red-300 bg-red-50/30",
+                                !timeSlot.isAvailable && timeSlot.unavailableReason === "past" && "border-gray-300 bg-gray-50/50"
                               )}
+                              onClick={() => {
+                                if (timeSlot.isAvailable) {
+                                  handleTimeSlotSelection(timeSlot.id);
+                                }
+                              }}
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className={cn(
+                                  "font-medium",
+                                  selectedTimeSlot === timeSlot.id && "text-primary",
+                                  !timeSlot.isAvailable && timeSlot.unavailableReason === "booked" && "text-red-600",
+                                  !timeSlot.isAvailable && timeSlot.unavailableReason === "past" && "text-gray-500"
+                                )}>
+                                  {timeSlot.formatted}
+                                </span>
+                                {timeSlot.isAvailable ? (
+                                  <Check className="h-4 w-4 text-green-500" />
+                                ) : timeSlot.unavailableReason === "booked" ? (
+                                  <X className="h-4 w-4 text-red-500" />
+                                ) : (
+                                  <Clock className="h-4 w-4 text-gray-500" />
+                                )}
+                              </div>
+                              <div className="text-xs mt-1">
+                                {timeSlot.isAvailable ? (
+                                  <span className="text-green-600 font-semibold">Available</span>
+                                ) : timeSlot.unavailableReason === "booked" ? (
+                                  <span className="text-red-600 font-semibold">Booked</span>
+                                ) : timeSlot.unavailableReason === "past" ? (
+                                  <span className="text-gray-600 font-semibold">Not Available</span>
+                                ) : (
+                                  <span className="text-red-600 font-semibold">Unavailable</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <div className="text-xs mt-1">
-                              {timeSlot.isAvailable ? (
-                            <span className="text-green-600 font-semibold">Available</span>
-                          ) : (
-                            <span className="text-red-600 font-semibold">Booked</span>
-                          )}
+                        
+                        {/* Add explanation about unavailable slots */}
+                        <div className="text-xs text-muted-foreground mt-2">
+                          <ul className="space-y-1">
+                            <li><span className="inline-block w-3 h-3 bg-red-50 border border-red-300 rounded-sm mr-1"></span> 
+                              <span className="text-red-600 font-medium">Booked</span> - This slot has already been reserved by another swimmer
+                            </li>
+                            <li><span className="inline-block w-3 h-3 bg-gray-50 border border-gray-300 rounded-sm mr-1"></span> 
+                              <span className="text-gray-600 font-medium">Not Available</span> - This slot is in the past and no longer available for booking
+                            </li>
+                          </ul>
                         </div>
-                      </div>
-                    ))}
-                      </div>
+                      </>
                     )}
-
-                   
                   </div>
 
                   <div className="p-3 bg-primary/5 border border-primary/20 rounded-md">
