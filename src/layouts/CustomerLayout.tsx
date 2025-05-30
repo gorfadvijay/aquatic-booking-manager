@@ -104,12 +104,12 @@ const CustomerLayout = () => {
                 <span className="text-sm font-medium text-muted-foreground mr-2 border-r border-muted-foreground/30 pr-3">
                   Welcome, {userName || "Customer"}
                 </span>
-                <button
-                  onClick={handleLogout}
-                  className="text-sm font-medium text-primary hover:text-primary/80"
-                >
-                  Logout
-                </button>
+              <button
+                onClick={handleLogout}
+                className="text-sm font-medium text-primary hover:text-primary/80"
+              >
+                Logout
+              </button>
               </>
             ) : (
               <Link

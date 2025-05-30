@@ -37,54 +37,17 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { registerUser, verifyOTP, resendOTP } from "@/lib/db";
 
-const step1Schema = z.object({
-  firstName: z.string().min(2, { message: "First name is required" }),
-  lastName: z.string().min(2, { message: "Last name is required" }),
+const formSchemaStep1 = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
   email: z.string().email({ message: "Invalid email address" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   phone: z.string().min(10, { message: "Phone number must be at least 10 digits" }),
-  dob: z.date({
-    required_error: "Date of birth is required",
-  }),
+  dob: z.date({ required_error: "Date of birth is required" }),
   gender: z.enum(["male", "female", "other"], {
-    required_error: "Please select a gender",
+    required_error: "Please select your gender",
   }),
   swimmingExperience: z.enum(["beginner", "intermediate", "advanced"], {
-    required_error: "Please select your swimming experience level",
-  }),
-});
-
-// Disabled validation for step 2 - make all fields optional
-const step2Schema = z.object({
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zipCode: z.string().optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-});
-
-// Combined schema for all fields
-const formSchema = z.object({
-  firstName: z.string().min(2, { message: "First name is required" }),
-  lastName: z.string().min(2, { message: "Last name is required" }),
-  email: z.string().email({ message: "Invalid email address" }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-  phone: z.string().min(10, { message: "Phone number must be at least 10 digits" }),
-  dob: z.date({
-    required_error: "Date of birth is required",
-  }),
-  gender: z.enum(["male", "female", "other"], {
-    required_error: "Please select a gender",
-  }),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zipCode: z.string().optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-  swimmingExperience: z.enum(["beginner", "intermediate", "advanced"], {
-    required_error: "Please select your swimming experience level",
+    required_error: "Please select your swimming experience",
   }),
 });
 
@@ -98,23 +61,17 @@ const Registration = () => {
   const [userEmail, setUserEmail] = useState<string>("");
 
   // Use the appropriate schema based on the current step
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(step === 1 ? step1Schema : step2Schema),
+  const form = useForm<z.infer<typeof formSchemaStep1>>({
+    resolver: zodResolver(formSchemaStep1),
     defaultValues: {
-      firstName: "",
-      lastName: "",
+      name: "",
       email: "",
       password: "",
       phone: "",
-      address: "",
-      city: "",
-      state: "",
-      zipCode: "",
-      emergencyContactName: "",
-      emergencyContactPhone: "",
+      dob: new Date(),
+      gender: "male",
       swimmingExperience: "beginner",
     },
-    mode: "onChange"
   });
 
   // Update form resolver when step changes
@@ -124,7 +81,7 @@ const Registration = () => {
     form.reset(undefined, {
       keepValues: true
     });
-  }, [step, form]);
+  }, [form]);
 
   const handleOtpChange = (index: number, value: string) => {
     // Only allow digits
@@ -163,19 +120,13 @@ const Registration = () => {
       
       // Register the user and get OTP
       await registerUser({
-        name: `${formValues.firstName} ${formValues.lastName}`,
+        name: formValues.name,
         email: formValues.email,
         password: formValues.password,
         phone: formValues.phone,
         dob: formValues.dob.toISOString(),
         gender: formValues.gender,
         swimming_experience: formValues.swimmingExperience,
-        address: formValues.address,
-        city: formValues.city,
-        state: formValues.state,
-        zip_code: formValues.zipCode,
-        emergency_contact_name: formValues.emergencyContactName,
-        emergency_contact_phone: formValues.emergencyContactPhone
       });
       
       setIsOtpSent(true);
@@ -207,31 +158,21 @@ const Registration = () => {
         const formValues = form.getValues();
         localStorage.setItem('userId', user.id || `user-${Math.random().toString(36).substring(2, 9)}`);
         localStorage.setItem('userEmail', formValues.email);
-        localStorage.setItem('userName', `${formValues.firstName} ${formValues.lastName}`);
+        localStorage.setItem('userName', formValues.name);
         localStorage.setItem('userPhone', formValues.phone);
         localStorage.setItem('userGender', formValues.gender);
         localStorage.setItem('userDob', formValues.dob.toISOString());
         localStorage.setItem('userSwimmingExperience', formValues.swimmingExperience);
-        localStorage.setItem('userAddress', formValues.address);
-        localStorage.setItem('userCity', formValues.city);
-        localStorage.setItem('userState', formValues.state);
-        localStorage.setItem('userZipCode', formValues.zipCode);
         
         // Store complete user object as JSON string for convenience
         localStorage.setItem('userData', JSON.stringify({
           id: user.id || `user-${Math.random().toString(36).substring(2, 9)}`,
           email: formValues.email,
-          name: `${formValues.firstName} ${formValues.lastName}`,
+          name: formValues.name,
           phone: formValues.phone,
           gender: formValues.gender,
           dob: formValues.dob.toISOString(),
           swimming_experience: formValues.swimmingExperience,
-          address: formValues.address,
-          city: formValues.city,
-          state: formValues.state,
-          zip_code: formValues.zipCode,
-          emergency_contact_name: formValues.emergencyContactName,
-          emergency_contact_phone: formValues.emergencyContactPhone
         }));
         
         toast({
@@ -278,15 +219,9 @@ const Registration = () => {
     }
   };
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  function onSubmit(values: z.infer<typeof formSchemaStep1>) {
     console.log(values);
-    if (step === 1) {
-      // Successfully validated step 1, move to step 2
-      setStep(2);
-    } else {
-      // Successfully validated step 2, proceed with verification
-      sendVerificationCode();
-    }
+    sendVerificationCode();
   }
 
   return (
@@ -304,9 +239,7 @@ const Registration = () => {
             <CardHeader>
               <CardTitle>Personal Information</CardTitle>
               <CardDescription>
-                {step === 1
-                  ? "Please provide your basic details"
-                  : "Please provide your address and emergency contact"}
+                Please provide your basic details
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -315,406 +248,274 @@ const Registration = () => {
                   onSubmit={form.handleSubmit(onSubmit)}
                   className="space-y-6"
                 >
-                  {step === 1 ? (
-                    <>
-                      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-                        <FormField
-                          control={form.control}
-                          name="firstName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>First Name</FormLabel>
+                  <div className="grid gap-6 grid-cols-1 ">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John Doe" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="john.doe@example.com"
+                              type="email"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            We'll send a verification code to this email
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="password"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Password</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="********"
+                              type="password"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="(555) 123-4567"
+                              type="tel"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            We'll send a verification code to this number
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="dob"
+                      render={({ field }) => {
+                        return (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Date of Birth</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
                               <FormControl>
-                                <Input placeholder="John" {...field} />
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "MMMM do, yyyy")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
                               </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="lastName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Last Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Doe" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="john.doe@example.com"
-                                type="email"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              We'll send a verification code to this email
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="********"
-                                type="password"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="(555) 123-4567"
-                                type="tel"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormDescription>
-                              We'll send a verification code to this number
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="dob"
-                        render={({ field }) => {
-                          return (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Date of Birth</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                      "w-full pl-3 text-left font-normal",
-                                      !field.value && "text-muted-foreground"
-                                    )}
-                                  >
-                                    {field.value ? (
-                                      format(field.value, "MMMM do, yyyy")
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                className="w-auto p-3"
-                                align="start"
-                              >
-                                <div className="space-y-2">
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Select
-                                      value={field.value ? format(field.value, 'MMMM') : format(new Date(), 'MMMM')}
-                                      onValueChange={(month) => {
-                                        const date = field.value || new Date();
-                                        const newDate = new Date(date);
-                                        const monthIndex = [
-                                          "January", "February", "March", "April", "May", "June",
-                                          "July", "August", "September", "October", "November", "December"
-                                        ].indexOf(month);
-                                        newDate.setMonth(monthIndex);
-                                        field.onChange(newDate);
-                                      }}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Month" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="January">January</SelectItem>
-                                        <SelectItem value="February">February</SelectItem>
-                                        <SelectItem value="March">March</SelectItem>
-                                        <SelectItem value="April">April</SelectItem>
-                                        <SelectItem value="May">May</SelectItem>
-                                        <SelectItem value="June">June</SelectItem>
-                                        <SelectItem value="July">July</SelectItem>
-                                        <SelectItem value="August">August</SelectItem>
-                                        <SelectItem value="September">September</SelectItem>
-                                        <SelectItem value="October">October</SelectItem>
-                                        <SelectItem value="November">November</SelectItem>
-                                        <SelectItem value="December">December</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                    <Select
-                                      value={field.value ? format(field.value, 'yyyy') : format(new Date(), 'yyyy')}
-                                      onValueChange={(year) => {
-                                        const date = field.value || new Date();
-                                        const newDate = new Date(date);
-                                        newDate.setFullYear(parseInt(year));
-                                        field.onChange(newDate);
-                                      }}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Year" />
-                                      </SelectTrigger>
-                                      <SelectContent className="h-[200px]">
-                                        {Array.from({ length: 100 }, (_, i) => (
-                                          <SelectItem
-                                            key={i}
-                                            value={(new Date().getFullYear() - 100 + i).toString()}
-                                          >
-                                            {new Date().getFullYear() - 100 + i}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={(date) => date && field.onChange(date)}
-                                    disabled={(date) =>
-                                      date > new Date() ||
-                                      date < new Date("1900-01-01")
-                                    }
-                                    initialFocus
-                                    className="rounded-md border"
-                                    classNames={{
-                                      caption: "hidden",
-                                      nav: "hidden"
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-auto p-3"
+                              align="start"
+                            >
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <Select
+                                    value={field.value ? format(field.value, 'MMMM') : format(new Date(), 'MMMM')}
+                                    onValueChange={(month) => {
+                                      const date = field.value || new Date();
+                                      const newDate = new Date(date);
+                                      const monthIndex = [
+                                        "January", "February", "March", "April", "May", "June",
+                                        "July", "August", "September", "October", "November", "December"
+                                      ].indexOf(month);
+                                      newDate.setMonth(monthIndex);
+                                      field.onChange(newDate);
                                     }}
-                                  />
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Month" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="January">January</SelectItem>
+                                      <SelectItem value="February">February</SelectItem>
+                                      <SelectItem value="March">March</SelectItem>
+                                      <SelectItem value="April">April</SelectItem>
+                                      <SelectItem value="May">May</SelectItem>
+                                      <SelectItem value="June">June</SelectItem>
+                                      <SelectItem value="July">July</SelectItem>
+                                      <SelectItem value="August">August</SelectItem>
+                                      <SelectItem value="September">September</SelectItem>
+                                      <SelectItem value="October">October</SelectItem>
+                                      <SelectItem value="November">November</SelectItem>
+                                      <SelectItem value="December">December</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <Select
+                                    value={field.value ? format(field.value, 'yyyy') : format(new Date(), 'yyyy')}
+                                    onValueChange={(year) => {
+                                      const date = field.value || new Date();
+                                      const newDate = new Date(date);
+                                      newDate.setFullYear(parseInt(year));
+                                      field.onChange(newDate);
+                                    }}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Year" />
+                                    </SelectTrigger>
+                                    <SelectContent className="h-[200px]">
+                                      {Array.from({ length: 100 }, (_, i) => (
+                                        <SelectItem
+                                          key={i}
+                                          value={(new Date().getFullYear() - 100 + i).toString()}
+                                        >
+                                          {new Date().getFullYear() - 100 + i}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                          )
-                        }}
-                      />
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={(date) => date && field.onChange(date)}
+                                  disabled={(date) =>
+                                    date > new Date() ||
+                                    date < new Date("1900-01-01")
+                                  }
+                                  initialFocus
+                                  className="rounded-md border"
+                                  classNames={{
+                                    caption: "hidden",
+                                    nav: "hidden"
+                                  }}
+                                />
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                        )
+                      }}
+                    />
 
-                      <FormField
-                        control={form.control}
-                        name="gender"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Gender</FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                                className="flex flex-col space-y-1"
-                              >
-                                <FormItem className="flex items-center space-x-3 space-y-0">
-                                  <FormControl>
-                                    <RadioGroupItem value="male" />
-                                  </FormControl>
-                                  <FormLabel className="font-normal">
-                                    Male
-                                  </FormLabel>
-                                </FormItem>
-                                <FormItem className="flex items-center space-x-3 space-y-0">
-                                  <FormControl>
-                                    <RadioGroupItem value="female" />
-                                  </FormControl>
-                                  <FormLabel className="font-normal">
-                                    Female
-                                  </FormLabel>
-                                </FormItem>
-                                <FormItem className="flex items-center space-x-3 space-y-0">
-                                  <FormControl>
-                                    <RadioGroupItem value="other" />
-                                  </FormControl>
-                                  <FormLabel className="font-normal">
-                                    Other
-                                  </FormLabel>
-                                </FormItem>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="swimmingExperience"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Swimming Experience</FormLabel>
-                            <Select
+                    <FormField
+                      control={form.control}
+                      name="gender"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gender</FormLabel>
+                          <FormControl>
+                            <RadioGroup
                               onValueChange={field.onChange}
                               defaultValue={field.value}
+                              className="flex flex-col space-y-1"
                             >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select your experience level" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="beginner">
-                                  Beginner
-                                </SelectItem>
-                                <SelectItem value="intermediate">
-                                  Intermediate
-                                </SelectItem>
-                                <SelectItem value="advanced">
-                                  Advanced
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>
-                              This helps us understand your swimming background
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="address"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Address</FormLabel>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="male" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  Male
+                                </FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="female" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  Female
+                                </FormLabel>
+                              </FormItem>
+                              <FormItem className="flex items-center space-x-3 space-y-0">
+                                <FormControl>
+                                  <RadioGroupItem value="other" />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  Other
+                                </FormLabel>
+                              </FormItem>
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="swimmingExperience"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Swimming Experience</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
                             <FormControl>
-                              <Input
-                                placeholder="123 Main St"
-                                {...field}
-                              />
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select your experience level" />
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
-                        <FormField
-                          control={form.control}
-                          name="city"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>City</FormLabel>
-                              <FormControl>
-                                <Input placeholder="New York" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="state"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>State</FormLabel>
-                              <FormControl>
-                                <Input placeholder="NY" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="zipCode"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Zip Code</FormLabel>
-                            <FormControl>
-                              <Input placeholder="10001" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <div className="mt-8 mb-4">
-                        <h3 className="text-lg font-medium mb-2">
-                          Emergency Contact Information
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Please provide someone we can contact in case of an emergency
-                        </p>
-                      </div>
-
-                      <FormField
-                        control={form.control}
-                        name="emergencyContactName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Emergency Contact Name</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Jane Doe"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="emergencyContactPhone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Emergency Contact Phone</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="(555) 123-4567"
-                                type="tel"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </>
-                  )}
+                            <SelectContent>
+                              <SelectItem value="beginner">
+                                Beginner
+                              </SelectItem>
+                              <SelectItem value="intermediate">
+                                Intermediate
+                              </SelectItem>
+                              <SelectItem value="advanced">
+                                Advanced
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            This helps us understand your swimming background
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <div className="flex justify-between pt-4">
-                    {step === 2 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setStep(1)}
-                      >
-                        Back
-                      </Button>
-                    )}
-                    <Button type="submit" className={step === 1 ? "w-full" : ""}>
-                      {step === 1 ? "Continue" : "Register"}
+                    <Button type="submit" className="w-full">
+                     Register
                     </Button>
                   </div>
                 </form>

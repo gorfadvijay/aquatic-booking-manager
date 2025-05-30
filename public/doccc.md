@@ -6,6 +6,5 @@ what you want to do , fetch slot and accordingly to duration create a slots on t
 Email: admin@swimmple.com
 Password: password8452
 
-
-user - Rajvi Makadiya
-hardik@0123gmail.com
+hardik@01234gmail.com
+hardik@01234gmail.com

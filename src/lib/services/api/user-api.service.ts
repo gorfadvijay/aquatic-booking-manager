@@ -10,12 +10,6 @@ export const registerUser = async (userData: {
   dob: string;
   gender?: 'male' | 'female' | 'other';
   swimming_experience?: 'beginner' | 'intermediate' | 'advanced';
-  address?: string;
-  city?: string;
-  state?: string;
-  zip_code?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
 }): Promise<{ user: User; otp: string }> => {
   // Check if user already exists
   const existingUser = await UserService.getByEmail(userData.email);

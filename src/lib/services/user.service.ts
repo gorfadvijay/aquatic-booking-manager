@@ -34,18 +34,12 @@ export const UserService = {
       const createdUser = data[0] as User;
       
       // Update with additional fields
-      if (user.gender || user.swimming_experience || user.address) {
+      if (user.gender || user.swimming_experience) {
         const additionalFields: Record<string, any> = {};
         
         if (user.otp_expiry) additionalFields.otp_expiry = user.otp_expiry;
         if (user.gender) additionalFields.gender = user.gender;
         if (user.swimming_experience) additionalFields.swimming_experience = user.swimming_experience;
-        if (user.address) additionalFields.address = user.address;
-        if (user.city) additionalFields.city = user.city;
-        if (user.state) additionalFields.state = user.state;
-        if (user.zip_code) additionalFields.zip_code = user.zip_code;
-        if (user.emergency_contact_name) additionalFields.emergency_contact_name = user.emergency_contact_name;
-        if (user.emergency_contact_phone) additionalFields.emergency_contact_phone = user.emergency_contact_phone;
         
         const { error: updateError } = await supabase
           .from('users')

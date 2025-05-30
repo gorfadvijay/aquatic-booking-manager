@@ -130,7 +130,7 @@ const EditSlots = () => {
           const slotByDay = await SlotService.getByDayOfWeek(dayName);
           if (slotByDay) {
             setSlot(slotByDay);
-            form.reset({
+          form.reset({
               isHoliday: slotByDay.is_holiday,
               startTime: slotByDay.start_time || '',
               endTime: slotByDay.end_time || ''
@@ -209,9 +209,9 @@ const EditSlots = () => {
     if (slot) {
       try {
         await SlotService.update(slot.id, {
-          is_holiday: values.isHoliday,
-          start_time: values.isHoliday ? "" : values.startTime,
-          end_time: values.isHoliday ? "" : values.endTime
+        is_holiday: values.isHoliday,
+        start_time: values.isHoliday ? "" : values.startTime,
+        end_time: values.isHoliday ? "" : values.endTime
         });
         
         toast({

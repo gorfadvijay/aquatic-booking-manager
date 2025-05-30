@@ -18,12 +18,6 @@ export type User = {
   password?: string;
   gender?: 'male' | 'female' | 'other';
   swimming_experience?: 'beginner' | 'intermediate' | 'advanced';
-  address?: string;
-  city?: string;
-  state?: string;
-  zip_code?: string;
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
 };
 
 export type Slot = {
