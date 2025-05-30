@@ -326,8 +326,7 @@ const Registration = () => {
                     <FormField
                       control={form.control}
                       name="dob"
-                      render={({ field }) => {
-                        return (
+                      render={({ field }) => (
                         <FormItem className="flex flex-col">
                           <FormLabel>Date of Birth</FormLabel>
                           <Popover>
@@ -343,32 +342,29 @@ const Registration = () => {
                                   {field.value ? (
                                     format(field.value, "MMMM do, yyyy")
                                   ) : (
-                                    <span>Pick a date</span>
+                                    <span>Pick your date of birth</span>
                                   )}
                                   <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
-                            <PopoverContent
-                              className="w-auto p-3"
-                              align="start"
-                            >
-                              <div className="space-y-2">
-                                <div className="grid grid-cols-2 gap-2">
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <div className="p-3 space-y-3">
+                                {/* Month and Year Selectors */}
+                                <div className="flex gap-2">
                                   <Select
-                                    value={field.value ? format(field.value, 'MMMM') : format(new Date(), 'MMMM')}
+                                    value={field.value ? format(field.value, 'MMMM') : format(new Date(new Date().getFullYear() - 20, 0), 'MMMM')}
                                     onValueChange={(month) => {
-                                      const date = field.value || new Date();
-                                      const newDate = new Date(date);
+                                      const currentDate = field.value || new Date(new Date().getFullYear() - 20, 0, 1);
                                       const monthIndex = [
                                         "January", "February", "March", "April", "May", "June",
                                         "July", "August", "September", "October", "November", "December"
                                       ].indexOf(month);
-                                      newDate.setMonth(monthIndex);
+                                      const newDate = new Date(currentDate.getFullYear(), monthIndex, currentDate.getDate());
                                       field.onChange(newDate);
                                     }}
                                   >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="w-[140px]">
                                       <SelectValue placeholder="Month" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -386,52 +382,56 @@ const Registration = () => {
                                       <SelectItem value="December">December</SelectItem>
                                     </SelectContent>
                                   </Select>
+                                  
                                   <Select
-                                    value={field.value ? format(field.value, 'yyyy') : format(new Date(), 'yyyy')}
+                                    value={field.value ? format(field.value, 'yyyy') : (new Date().getFullYear() - 20).toString()}
                                     onValueChange={(year) => {
-                                      const date = field.value || new Date();
-                                      const newDate = new Date(date);
-                                      newDate.setFullYear(parseInt(year));
+                                      const currentDate = field.value || new Date(new Date().getFullYear() - 20, 0, 1);
+                                      const newDate = new Date(parseInt(year), currentDate.getMonth(), currentDate.getDate());
                                       field.onChange(newDate);
                                     }}
                                   >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="w-[100px]">
                                       <SelectValue placeholder="Year" />
                                     </SelectTrigger>
                                     <SelectContent className="h-[200px]">
-                                      {Array.from({ length: 100 }, (_, i) => (
-                                        <SelectItem
-                                          key={i}
-                                          value={(new Date().getFullYear() - 100 + i).toString()}
-                                        >
-                                          {new Date().getFullYear() - 100 + i}
-                                        </SelectItem>
-                                      ))}
+                                      {Array.from({ length: 80 }, (_, i) => {
+                                        const year = new Date().getFullYear() - i;
+                                        return (
+                                          <SelectItem key={year} value={year.toString()}>
+                                            {year}
+                                          </SelectItem>
+                                        );
+                                      })}
                                     </SelectContent>
                                   </Select>
                                 </div>
+                                
+                                {/* Calendar */}
                                 <Calendar
                                   mode="single"
                                   selected={field.value}
                                   onSelect={(date) => date && field.onChange(date)}
                                   disabled={(date) =>
-                                    date > new Date() ||
+                                    date > new Date() || 
                                     date < new Date("1900-01-01")
                                   }
-                                  initialFocus
-                                  className="rounded-md border"
-                                  classNames={{
-                                    caption: "hidden",
-                                    nav: "hidden"
+                                  month={field.value || new Date(new Date().getFullYear() - 20, 0)}
+                                  onMonthChange={(month) => {
+                                    const currentDate = field.value || new Date(new Date().getFullYear() - 20, 0, 1);
+                                    const newDate = new Date(month.getFullYear(), month.getMonth(), currentDate.getDate());
+                                    field.onChange(newDate);
                                   }}
                                 />
                               </div>
                             </PopoverContent>
                           </Popover>
+                          <FormDescription>
+                            Use the dropdowns to quickly select month and year
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
-                        )
-                      }}
+                      )}
                     />
 
                     <FormField
