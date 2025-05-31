@@ -17,10 +17,11 @@ import {
   ChevronLeft, 
   ChevronRight,
   Clock,
-  Ban
+  Ban,
+  Copy
 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
-import { format, addMonths, subMonths, isSameDay, addDays, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
+import { format, addMonths, subMonths, isSameDay, addDays, startOfMonth, endOfMonth, eachDayOfInterval, addWeeks } from "date-fns";
 import { getAllSlots, createSlot, SlotApiService } from "@/lib/db";
 import { Slot } from "@/types/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -56,6 +57,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -66,6 +68,12 @@ const slotFormSchema = z.object({
   endTime: z.string().min(1, "End time is required"),
   slotDuration: z.string().min(1, "Slot duration is required"),
   isHoliday: z.boolean().default(false),
+});
+
+// Form schema for copying slots
+const copyFormSchema = z.object({
+  days: z.array(z.number()).min(1, "Please select at least one day"),
+  weeks: z.number().min(1, "Number of weeks must be at least 1").max(52, "Cannot exceed 52 weeks"),
 });
 
 // Type for calendar day cell
@@ -84,6 +92,10 @@ const SlotManagement = () => {
   const [calendarDays, setCalendarDays] = useState<CalendarDayInfo[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [currentEditingSlot, setCurrentEditingSlot] = useState<Slot | null>(null);
+  const [currentCopyingSlot, setCurrentCopyingSlot] = useState<Slot | null>(null);
   const { toast } = useToast();
 
   // Initialize form for creating slots
@@ -94,6 +106,15 @@ const SlotManagement = () => {
       endTime: "17:00",
       slotDuration: "60",
       isHoliday: false,
+    },
+  });
+
+  // Initialize form for copying slots
+  const copyForm = useForm<z.infer<typeof copyFormSchema>>({
+    resolver: zodResolver(copyFormSchema),
+    defaultValues: {
+      days: [],
+      weeks: 4,
     },
   });
 
@@ -268,6 +289,100 @@ const SlotManagement = () => {
     }
   };
 
+  // Handle copying a slot to multiple days/weeks
+  const handleCopySlot = async (values: z.infer<typeof copyFormSchema>) => {
+    if (!currentCopyingSlot) return;
+    
+    try {
+      setLoading(true);
+      const { days, weeks } = values;
+      const sourceDate = new Date(currentCopyingSlot.start_date!);
+      
+      // Days of week mapping (0 = Monday, 6 = Sunday)
+      const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      
+      // Generate all target dates
+      const targetDates: Date[] = [];
+      
+      for (let week = 1; week <= weeks; week++) {
+        for (const dayOfWeek of days) {
+          const targetWeekStart = addWeeks(sourceDate, week);
+          // Calculate the target date for this day of week
+          const currentDay = targetWeekStart.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          const mondayOfWeek = addDays(targetWeekStart, currentDay === 0 ? -6 : 1 - currentDay);
+          const targetDate = addDays(mondayOfWeek, dayOfWeek);
+          
+          // Only add if it's not in the past
+          if (targetDate >= new Date(new Date().setHours(0, 0, 0, 0))) {
+            targetDates.push(targetDate);
+          }
+        }
+      }
+      
+      // Check for existing slots and create new ones
+      let createdCount = 0;
+      let skippedCount = 0;
+      
+      for (const targetDate of targetDates) {
+        // Check if a slot already exists for this date
+        const existingSlot = slots.find(s => 
+          s.start_date && isSameDay(new Date(s.start_date), targetDate)
+        );
+        
+        if (existingSlot) {
+          skippedCount++;
+          continue;
+        }
+        
+        // Create slot data
+        const year = targetDate.getFullYear();
+        const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+        const day = String(targetDate.getDate()).padStart(2, '0');
+        const formattedDate = `${year}-${month}-${day}`;
+        
+        const slotData = {
+          start_date: formattedDate,
+          start_time: currentCopyingSlot.start_time,
+          end_time: currentCopyingSlot.end_time,
+          is_holiday: currentCopyingSlot.is_holiday,
+          slot_duration: currentCopyingSlot.slot_duration,
+        };
+        
+        try {
+          await createSlot(slotData);
+          createdCount++;
+        } catch (error) {
+          console.error(`Failed to create slot for ${formattedDate}:`, error);
+        }
+      }
+      
+      // Refresh slots
+      const updatedSlots = await getAllSlots();
+      setSlots(updatedSlots);
+      
+      // Show success message
+      const selectedDayNames = days.map(day => dayNames[day]).join(', ');
+      toast({
+        title: "Slots copied successfully",
+        description: `Created ${createdCount} new slots for ${selectedDayNames} over ${weeks} weeks. ${skippedCount > 0 ? `Skipped ${skippedCount} existing slots.` : ''}`,
+      });
+      
+      // Reset and close dialog
+      copyForm.reset();
+      setShowCopyDialog(false);
+      setCurrentCopyingSlot(null);
+    } catch (error) {
+      console.error("Error copying slots:", error);
+      toast({
+        title: "Error",
+        description: "Failed to copy slots",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle when a calendar day is clicked
   const handleDayClick = (date: Date) => {
     setSelectedDate(date);
@@ -317,7 +432,22 @@ const SlotManagement = () => {
           {day.hasSlot && (
             <div className="flex gap-1">
               <button 
+                className="text-gray-500 hover:text-blue-600"
+                title="Copy slot"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (day.slot?.id) {
+                    setCurrentCopyingSlot(day.slot);
+                    copyForm.reset();
+                    setShowCopyDialog(true);
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+              <button 
                 className="text-gray-500 hover:text-primary"
+                title="Edit slot"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (day.slot?.id) {
@@ -336,6 +466,7 @@ const SlotManagement = () => {
               </button>
               <button 
                 className="text-gray-500 hover:text-destructive"
+                title="Delete slot"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (day.slot?.id) handleRemoveSlot(day.slot.id);
@@ -397,10 +528,6 @@ const SlotManagement = () => {
       </div>
     );
   };
-
-  // State for edit dialog
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [currentEditingSlot, setCurrentEditingSlot] = useState<Slot | null>(null);
 
   // Handle editing a slot
   const handleEditSlot = async (values: z.infer<typeof slotFormSchema>) => {
@@ -501,21 +628,21 @@ const SlotManagement = () => {
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
                 <div key={day} className="py-2 text-center font-medium text-sm">
                   {day}
-                        </div>
+                </div>
               ))}
-                          </div>
+            </div>
             
             {/* Calendar grid */}
             <div className="grid grid-cols-7 gap-px bg-gray-200">
               {calendarDays.map(day => renderCalendarDay(day))}
-                        </div>
+            </div>
             
             {/* Legend */}
             <div className="mt-4 flex gap-4 text-sm">
               <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-green-100 border border-green-300 mr-1"></div>
                 <span>Available</span>
-                      </div>
+              </div>
               <div className="flex items-center">
                 <div className="w-3 h-3 rounded-full bg-red-100 border border-red-300 mr-1"></div>
                 <span>Holiday</span>
@@ -676,7 +803,7 @@ const SlotManagement = () => {
                         <label htmlFor="is-holiday" className="text-sm font-medium">
                           Mark as holiday
                         </label>
-              </div>
+                      </div>
                     </FormControl>
                   </FormItem>
                 )}
@@ -752,6 +879,117 @@ const SlotManagement = () => {
                 <Button type="submit" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isHoliday ? "Update Holiday" : "Update Slot"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for copying slots */}
+      <Dialog open={showCopyDialog} onOpenChange={setShowCopyDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Copy Slot to Multiple Days</DialogTitle>
+            <DialogDescription>
+              {currentCopyingSlot && (
+                <span>
+                  Copy the {currentCopyingSlot.is_holiday ? 'holiday' : `slot (${currentCopyingSlot.start_time} - ${currentCopyingSlot.end_time})`} to selected days for multiple weeks
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...copyForm}>
+            <form onSubmit={copyForm.handleSubmit(handleCopySlot)} className="space-y-6">
+              <FormField
+                control={copyForm.control}
+                name="days"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Select Days of the Week</FormLabel>
+                    <FormDescription>
+                      Choose which days of the week to copy this slot to
+                    </FormDescription>
+                    <div className="grid grid-cols-2 gap-3">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, index) => (
+                        <FormField
+                          key={day}
+                          control={copyForm.control}
+                          name="days"
+                          render={({ field }) => {
+                            return (
+                              <FormItem
+                                key={day}
+                                className="flex flex-row items-start space-x-3 space-y-0"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value?.includes(index)}
+                                    onCheckedChange={(checked) => {
+                                      return checked
+                                        ? field.onChange([...field.value, index])
+                                        : field.onChange(
+                                            field.value?.filter(
+                                              (value) => value !== index
+                                            )
+                                          )
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormLabel className="font-normal">
+                                  {day}
+                                </FormLabel>
+                              </FormItem>
+                            )
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={copyForm.control}
+                name="weeks"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Number of Weeks</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="1" 
+                        max="52" 
+                        placeholder="4"
+                        {...field}
+                        onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      How many weeks into the future should these slots be created? (1-52 weeks)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setShowCopyDialog(false);
+                    setCurrentCopyingSlot(null);
+                    copyForm.reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Copy Slots
                 </Button>
               </DialogFooter>
             </form>
