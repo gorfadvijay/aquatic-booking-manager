@@ -8,7 +8,11 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "functions:serve": "npx supabase functions serve",
+    "test:payment": "node -e \"console.log('Testing payment flow...'); import('./src/lib/services/api/phonepe-api.service.ts').then(m => m.testPaymentFlow())\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -44,6 +48,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
+    "crypto-js": "^4.2.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
     "input-otp": "^1.2.4",

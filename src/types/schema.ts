@@ -46,7 +46,7 @@ export type Booking = {
   created_at: Date | string;
 };
 
-export type PaymentStatus = 'success' | 'failed' | 'refunded';
+export type PaymentStatus = 'success' | 'failed' | 'refunded' | 'pending';
 
 export type Payment = {
   id: UUID;

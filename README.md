@@ -1,5 +1,5 @@
 # Welcome to your Lovable project
-
+http://localhost:8080/customer/payment-success?merchantTransactionId=TXN_1750234605736_42bm131dv&transactionId=PHONEPE_1750234605736&status=SUCCESS&amount=14999&bookingId=be69cb31-c88b-4460-aca9-a4e56c805868
 ## Project info
 
 **URL**: https://lovable.dev/projects/e0705224-e805-44d3-9735-2adce17b22d3

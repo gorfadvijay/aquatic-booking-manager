@@ -24,6 +24,7 @@ import Payment from "./pages/customer/Payment";
 import Invoice from "./pages/customer/Invoice";
 import BookingDetails from "./pages/customer/BookingDetails";
 
+
 // Auth & Other Pages
 import Login from "./pages/auth/Login";
 import Index from "./pages/Index";
@@ -50,10 +51,11 @@ const App = () => (
             <Route path="register" element={<CustomerRegistration />} />
             <Route path="book" element={<BookAnalysisSlot />} />
             <Route path="payment" element={<Payment />} />
-            <Route path="booking-success" element={<BookingSuccess name="Booking Success" />} />
-            <Route path="payment-fail" element={<PaymentFail name="Payment Failed" />} />
+            <Route path="booking-success" element={<BookingSuccess />} />
+            <Route path="payment-fail" element={<PaymentFail />} />
             <Route path="invoice/:id" element={<Invoice />} />
             <Route path="booking-details" element={<BookingDetails />} />
+            <Route path="booking-details/:id" element={<BookingDetails />} />
           </Route>
           
           {/* Admin Routes */}
