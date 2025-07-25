@@ -1,1 +1,1 @@
-Swimple Admin v1
+Swimple Admin v3
