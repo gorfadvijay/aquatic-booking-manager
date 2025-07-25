@@ -84,3 +84,18 @@ export type Notification = {
   sent_at?: Date | string;
 };
 
+export type CampBooking = {
+  id: UUID;
+  name: string;
+  email: string;
+  batch: string;
+  camp: string;
+  amount: number;
+  payment_status: string;
+  transaction_id: string | null;
+  payment_id: string | null;
+  phonepe_response: any | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+

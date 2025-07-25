@@ -56,12 +56,12 @@ const Login = () => {
     try {
       // For admin, use static credentials check
       if (values.userType === "admin") {
-        if (values.email === "admin@swimmple.com" && values.password === "password8452") {
+        if (values.email === "admin@swimple.in" && values.password === "swimple@2025") {
           // Static admin user
           const adminUser = {
             id: "58e48818-18c2-48ea-b11a-ac239712ca02",
             name: "Admin User",
-            email: "admin@swimmple.com",
+            email: "admin@swimple.in",
             phone: "+91 9876543210",
             dob: "1990-01-01",
             is_admin: true,

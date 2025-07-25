@@ -9,6 +9,7 @@ import {
   User,
   Users,
   BookOpen,
+  Tent,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,6 +40,11 @@ const AdminLayout = () => {
       title: "Slot Management",
       icon: <Settings className="h-5 w-5" />,
       path: "/admin/slots",
+    },
+    {
+      title: "Camp Registration",
+      icon: <Tent className="h-5 w-5" />,
+      path: "/admin/camp-registration",
     },
     {
       title: "Reports",

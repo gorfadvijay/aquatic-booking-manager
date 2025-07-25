@@ -16,6 +16,7 @@ import CreateSlots from "./pages/admin/slots/CreateSlots";
 import EditSlots from "./pages/admin/slots/EditSlots";
 import ViewBookings from "./pages/admin/bookings/ViewBookings";
 import Reports from "./pages/admin/reports/Reports";
+import CampRegistration from "./pages/admin/camp/CampRegistration";
 
 // Customer Pages
 import CustomerRegistration from "./pages/customer/Registration";
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="slots/edit/:id" element={<EditSlots />} />
             <Route path="bookings" element={<ViewBookings />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="camp-registration" element={<CampRegistration />} />
           </Route>
           
           {/* Catch-all route */}
