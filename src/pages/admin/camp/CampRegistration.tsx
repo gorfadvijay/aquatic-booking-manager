@@ -164,7 +164,7 @@ const CampRegistration = () => {
                     {formatCurrency(
                       campBookings
                         .filter(b => b.payment_status.toLowerCase() === 'success')
-                        .reduce((sum, b) => sum + b.amount, 0)
+                        .reduce((sum, b) => sum + (b.amount / 100), 0)
                     )}
                   </div>
                   <div className="bg-blue-100 text-blue-600 p-2 rounded">
@@ -233,7 +233,7 @@ const CampRegistration = () => {
                           <TableCell>{booking.email}</TableCell>
                           <TableCell>{booking.camp}</TableCell>
                           <TableCell>{booking.batch}</TableCell>
-                          <TableCell>{formatCurrency(booking.amount)}</TableCell>
+                          <TableCell>{formatCurrency(booking.amount / 100)}</TableCell>
                           <TableCell>
                             {getStatusBadge(booking.payment_status)}
                           </TableCell>
