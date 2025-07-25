@@ -48,6 +48,12 @@ const CampRegistration = () => {
     try {
       const data = await getAllCampBookings();
       setCampBookings(data);
+      
+      // Debug: Log payment statuses to see what values we have
+      if (data.length > 0) {
+        const statuses = data.map(b => b.payment_status);
+        console.log("Available payment statuses:", [...new Set(statuses)]);
+      }
     } catch (error) {
       console.error("Error fetching camp bookings:", error);
       toast({
@@ -82,6 +88,12 @@ const CampRegistration = () => {
         {status}
       </Badge>
     );
+  };
+
+  // Helper function to check if payment is successful
+  const isSuccessfulPayment = (status: string) => {
+    const successStatuses = ['success', 'completed', 'paid', 'successful'];
+    return successStatuses.includes(status.toLowerCase());
   };
 
   const formatCurrency = (amount: number) => {
@@ -126,7 +138,7 @@ const CampRegistration = () => {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
-                  <div className="text-3xl font-bold">{campBookings.length}</div>
+                  <div className="text-3xl font-bold">{campBookings.filter(b => isSuccessfulPayment(b.payment_status)).length}</div>
                   <div className="bg-primary/10 text-primary p-2 rounded">
                     <Users className="h-5 w-5" />
                   </div>
@@ -143,7 +155,7 @@ const CampRegistration = () => {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-3xl font-bold">
-                    {campBookings.filter(b => b.payment_status.toLowerCase() === 'success').length}
+                    {campBookings.filter(b => isSuccessfulPayment(b.payment_status)).length}
                   </div>
                   <div className="bg-green-100 text-green-600 p-2 rounded">
                     <Users className="h-5 w-5" />
@@ -163,7 +175,7 @@ const CampRegistration = () => {
                   <div className="text-3xl font-bold">
                     {formatCurrency(
                       campBookings
-                        .filter(b => b.payment_status.toLowerCase() === 'success')
+                        .filter(b => isSuccessfulPayment(b.payment_status))
                         .reduce((sum, b) => sum + (b.amount / 100), 0)
                     )}
                   </div>
