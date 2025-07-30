@@ -33,9 +33,7 @@ const Index = () => {
             <Link to="/login" className="text-sm font-medium text-primary hover:text-primary/80">
               Login
             </Link>
-            <Link to="/customer/register">
-              <Button>Register</Button>
-            </Link>
+            
           </div>
         </div>
       </header>
@@ -52,11 +50,7 @@ const Index = () => {
                 An all-in-one solution for managing pool bookings, schedules, and customer analysis sessions.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link to="/customer/register">
-                  <Button size="lg" className="w-full sm:w-auto">
-                    Register as Customer
-                  </Button>
-                </Link>
+              
                 <Link to="/admin">
                   <Button
                     size="lg"

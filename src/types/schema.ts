@@ -36,14 +36,27 @@ export type BookingStatus = 'booked' | 'cancelled' | 'completed' | 'rescheduled'
 export type Booking = {
   id: UUID;
   user_id: UUID;
+  name: string;
+  email: string;
+  phone: string;
   slot_id: UUID;
-  booking_date: Date | string;
+  booking_dates: string; // JSON array of dates for multi-day bookings
   start_time: string; // Format: "HH:MM"
   end_time: string; // Format: "HH:MM"
-  status: BookingStatus;
-  rescheduled_to: UUID | null;
-  cancel_reason: string | null;
+  amount: number; // Payment amount in smallest currency unit
+  payment_status: string;
+  transaction_id?: string;
+  payment_id?: string;
+  payment_completed_at?: Date | string;
+  phonepe_response?: any; // JSONB data
+  user_data?: any; // JSONB complete user information
   created_at: Date | string;
+  updated_at?: Date | string;
+  // Legacy fields for compatibility
+  booking_date?: Date | string;
+  status?: BookingStatus;
+  rescheduled_to?: UUID | null;
+  cancel_reason?: string | null;
 };
 
 export type PaymentStatus = 'success' | 'failed' | 'refunded' | 'pending';

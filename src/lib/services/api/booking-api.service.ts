@@ -105,7 +105,7 @@ export const getBooking = async (id: UUID): Promise<Booking | undefined> => {
 export const getUserBookings = async (userId: UUID): Promise<Booking[]> => {
   try {
     const { data, error } = await supabase
-      .from('bookings')
+      .from('slotbooking')
       .select('*')
       .eq('user_id', userId);
     
@@ -124,7 +124,7 @@ export const getUserBookings = async (userId: UUID): Promise<Booking[]> => {
 export const getAllBookings = async (): Promise<Booking[]> => {
   try {
     const { data, error } = await supabase
-      .from('bookings')
+      .from('slotbooking')
       .select('*');
     
     if (error) {
@@ -142,16 +142,31 @@ export const getAllBookings = async (): Promise<Booking[]> => {
 export const getBookingsByDate = async (date: string): Promise<Booking[]> => {
   try {
     const { data, error } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('booking_date', date);
+      .from('slotbooking')
+      .select('*');
     
     if (error) {
       console.error('Error fetching bookings by date:', error);
       return [];
     }
     
-    return data as Booking[];
+    // Filter bookings that include the specified date in their booking_dates array
+    const filteredData = data?.filter(booking => {
+      if (!booking.booking_dates) return false;
+      
+      try {
+        const bookingDates = typeof booking.booking_dates === 'string' 
+          ? JSON.parse(booking.booking_dates) 
+          : booking.booking_dates;
+        
+        return Array.isArray(bookingDates) && bookingDates.includes(date);
+      } catch (error) {
+        console.error('Error parsing booking_dates:', error);
+        return false;
+      }
+    }) || [];
+    
+    return filteredData as Booking[];
   } catch (error) {
     console.error('Error in getBookingsByDate:', error);
     return [];

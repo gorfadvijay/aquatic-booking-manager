@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { loginUser } from "@/lib/db";
 import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
@@ -33,7 +32,6 @@ const formSchema = z.object({
   password: z
     .string()
     .min(6, { message: "Password must be at least 6 characters" }),
-  userType: z.enum(["admin", "customer"]),
 });
 
 const Login = () => {
@@ -46,7 +44,6 @@ const Login = () => {
     defaultValues: {
       email: "",
       password: "",
-      userType: "customer",
     },
   });
 
@@ -54,84 +51,41 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // For admin, use static credentials check
-      if (values.userType === "admin") {
-        if (values.email === "admin@swimple.in" && values.password === "swimple@2025") {
-          // Static admin user
-          const adminUser = {
-            id: "58e48818-18c2-48ea-b11a-ac239712ca02",
-            name: "Admin User",
-            email: "admin@swimple.in",
-            phone: "+91 9876543210",
-            dob: "1990-01-01",
-            is_admin: true,
-            is_verified: true,
-            created_at: new Date().toISOString()
-          };
-          
-          // Store admin information in localStorage
-          localStorage.setItem('userId', adminUser.id);
-          localStorage.setItem('userEmail', adminUser.email);
-          localStorage.setItem('userName', adminUser.name);
-          localStorage.setItem('userPhone', adminUser.phone);
-          localStorage.setItem('userDob', adminUser.dob);
-          localStorage.setItem('isAdmin', 'true');
-          
-          // Store complete user object as JSON string for convenience
-          localStorage.setItem('userData', JSON.stringify(adminUser));
-          
-          toast({
-            title: "Login successful",
-            description: `Welcome back, ${adminUser.name}`,
-          });
-          
-          navigate("/admin");
-          return;
-        } else {
-          toast({
-            title: "Login failed",
-            description: "Invalid admin credentials",
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-      
-      // For regular users, use the API
-      const user = await loginUser(
-        values.email, 
-        values.password, 
-        values.userType as 'admin' | 'customer'
-      );
-      
-      if (user) {
-        // Store user information in localStorage
-        localStorage.setItem('userId', user.id);
-        localStorage.setItem('userEmail', user.email);
-        localStorage.setItem('userName', user.name);
-        localStorage.setItem('userPhone', user.phone || '');
-        localStorage.setItem('userDob', user.dob ? (typeof user.dob === 'string' ? user.dob : user.dob.toISOString()) : '');
+      // Admin static credentials check
+      if (values.email === "admin@swimple.in" && values.password === "swimple@2025") {
+        // Static admin user
+        const adminUser = {
+          id: "58e48818-18c2-48ea-b11a-ac239712ca02",
+          name: "Admin User",
+          email: "admin@swimple.in",
+          phone: "+91 9876543210",
+          dob: "1990-01-01",
+          is_admin: true,
+          is_verified: true,
+          created_at: new Date().toISOString()
+        };
+        
+        // Store admin information in localStorage
+        localStorage.setItem('userId', adminUser.id);
+        localStorage.setItem('userEmail', adminUser.email);
+        localStorage.setItem('userName', adminUser.name);
+        localStorage.setItem('userPhone', adminUser.phone);
+        localStorage.setItem('userDob', adminUser.dob);
+        localStorage.setItem('isAdmin', 'true');
         
         // Store complete user object as JSON string for convenience
-        localStorage.setItem('userData', JSON.stringify({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          phone: user.phone,
-          dob: user.dob,
-          // Add any other available properties from the user object
-        }));
+        localStorage.setItem('userData', JSON.stringify(adminUser));
         
         toast({
           title: "Login successful",
-          description: `Welcome back, ${user.name}`,
+          description: `Welcome back, ${adminUser.name}`,
         });
         
-        navigate("/customer/book");
+        navigate("/admin");
       } else {
         toast({
           title: "Login failed",
-          description: "Invalid email or password",
+          description: "Invalid admin credentials",
           variant: "destructive",
         });
       }
@@ -174,9 +128,9 @@ const Login = () => {
                 </svg>
               </div>
             </div>
-            <CardTitle className="text-2xl text-center">Welcome Back</CardTitle>
+            <CardTitle className="text-2xl text-center">Admin Login</CardTitle>
             <CardDescription className="text-center">
-              Enter your credentials to access your account
+              Enter your admin credentials to access the system
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -185,42 +139,7 @@ const Login = () => {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-4"
               >
-                <FormField
-                  control={form.control}
-                  name="userType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <div className="flex rounded-md overflow-hidden border">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className={`flex-1 rounded-none ${
-                              field.value === "customer"
-                                ? "bg-primary text-white"
-                                : ""
-                            }`}
-                            onClick={() => field.onChange("customer")}
-                          >
-                            Customer
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className={`flex-1 rounded-none ${
-                              field.value === "admin"
-                                ? "bg-primary text-white"
-                                : ""
-                            }`}
-                            onClick={() => field.onChange("admin")}
-                          >
-                            Admin
-                          </Button>
-                        </div>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+
 
                 <FormField
                   control={form.control}
@@ -265,13 +184,7 @@ const Login = () => {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <div className="text-sm text-center text-muted-foreground">
-              Don't have an account?{" "}
-              <a
-                href="/customer/register"
-                className="text-primary hover:underline"
-              >
-                Register
-              </a>
+              Admin access only
             </div>
           </CardFooter>
         </Card>

@@ -11,6 +11,7 @@ import { getAllBookings, getBookingsByDate } from "@/lib/services/api/booking-ap
 import { UserService } from "@/lib/services/user.service";
 import { format } from "date-fns";
 import { Booking, User } from "@/types/schema";
+import { getFirstBookingDate, formatBookingDate, formatBookingDatesRange } from "@/lib/utils";
 
 const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -48,10 +49,16 @@ const AdminDashboard = () => {
         setUserMap(userLookup);
 
         // Calculate statistics
+        const totalRevenue = allBookings.reduce((sum, booking) => {
+          // Convert amount from smallest currency unit (paisa) to rupees
+          const amount = booking.amount ? booking.amount / 100 : 0;
+          return sum + amount;
+        }, 0);
+        
         setStats({
           totalBookings: allBookings.length,
           registeredCustomers: users.filter(u => !u.is_admin).length,
-          revenue: allBookings.length * 60 // Assuming $60 per booking for demo
+          revenue: Math.round(totalRevenue)
         });
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -63,10 +70,17 @@ const AdminDashboard = () => {
     fetchData();
   }, []);
 
+
+
   // Get status for a booking
   const getBookingStatus = (booking: Booking) => {
     const now = new Date();
-    const bookingDate = new Date(booking.booking_date);
+    const bookingDate = getFirstBookingDate(booking);
+    
+    if (!bookingDate || isNaN(bookingDate.getTime())) {
+      return "Unknown";
+    }
+    
     const startTime = booking.start_time.split(':');
     const endTime = booking.end_time.split(':');
     
@@ -87,6 +101,13 @@ const AdminDashboard = () => {
 
   // Format time from 24h to 12h
   const formatTime = (time: string) => {
+    if (!time) return 'N/A';
+    
+    // If time already contains AM/PM, return as is
+    if (time.includes('AM') || time.includes('PM')) {
+      return time;
+    }
+    
     const [hours, minutes] = time.split(':');
     const hour = parseInt(hours);
     const period = hour >= 12 ? 'PM' : 'AM';
@@ -181,9 +202,9 @@ const AdminDashboard = () => {
                         className="flex items-center justify-between border-b border-border pb-4"
                       >
                         <div>
-                          <div className="font-medium">{user?.name || "Unknown Customer"}</div>
+                          <div className="font-medium">{booking.name || user?.name || "Unknown Customer"}</div>
                           <div className="text-sm text-muted-foreground">
-                            {format(new Date(booking.booking_date), 'MMM d, yyyy')} - {formatTime(booking.start_time)}
+                            {formatBookingDatesRange(booking)} - {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
                           </div>
                         </div>
                         <div className={`text-sm px-2 py-1 rounded-full ${
@@ -229,7 +250,7 @@ const AdminDashboard = () => {
                             {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {user?.name || "Unknown Customer"} - Analysis Session
+                            {booking.name || user?.name || "Unknown Customer"} - {formatBookingDatesRange(booking)}
                           </div>
                         </div>
                         <div className={`text-sm px-2 py-1 rounded-full ${

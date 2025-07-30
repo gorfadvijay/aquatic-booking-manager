@@ -6,7 +6,7 @@ export const BookingService = {
   create: async (booking: Omit<Booking, 'id' | 'created_at'>): Promise<Booking> => {
     try {
       const { data, error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .insert([booking])
         .select()
         .single();
@@ -22,7 +22,7 @@ export const BookingService = {
   getById: async (id: UUID): Promise<Booking | undefined> => {
     try {
       const { data, error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .select('*')
         .eq('id', id)
         .single();
@@ -38,7 +38,7 @@ export const BookingService = {
   getBookingsBySlotId: async (slotId: UUID): Promise<Booking[]> => {
     try {
       const { data, error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .select('*')
         .eq('slot_id', slotId);
         
@@ -53,7 +53,7 @@ export const BookingService = {
   getByUserId: async (userId: UUID): Promise<Booking[]> => {
     try {
       const { data, error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .select('*')
         .eq('user_id', userId);
         
@@ -70,7 +70,7 @@ export const BookingService = {
       const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
       
       const { data, error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .select('*')
         .gte('booking_date', today)
         .order('booking_date', { ascending: true });
@@ -86,7 +86,7 @@ export const BookingService = {
   getAll: async (): Promise<Booking[]> => {
     try {
       const { data, error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .select('*')
         .order('booking_date', { ascending: false });
         
@@ -101,7 +101,7 @@ export const BookingService = {
   update: async (id: UUID, data: Partial<Booking>): Promise<Booking | undefined> => {
     try {
       const { data: updatedData, error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .update(data)
         .eq('id', id)
         .select()
@@ -118,7 +118,7 @@ export const BookingService = {
   delete: async (id: UUID): Promise<boolean> => {
     try {
       const { error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .delete()
         .eq('id', id);
         

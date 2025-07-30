@@ -57,6 +57,7 @@ import {
 } from "@/lib/db";
 import { Booking } from "@/types/schema";
 import { format, addDays, subDays, parseISO } from "date-fns";
+import { getFirstBookingDate, formatBookingDate, formatBookingDatesRange } from "@/lib/utils";
 
 interface EnrichedBooking extends Booking {
   customerName?: string;
@@ -110,42 +111,48 @@ const ViewBookings = () => {
         
         // Filter to only show the current month
         fetchedBookings = fetchedBookings.filter(booking => {
-          const bookingDate = typeof booking.booking_date === 'string' 
-            ? booking.booking_date 
-            : format(new Date(booking.booking_date), "yyyy-MM-dd");
-          return bookingDate.substring(0, 7) === format(selectedDate, "yyyy-MM");
+          if (!booking.booking_dates) return false;
+          
+          try {
+            const bookingDates = typeof booking.booking_dates === 'string' 
+              ? JSON.parse(booking.booking_dates) 
+              : booking.booking_dates;
+              
+            if (!Array.isArray(bookingDates)) return false;
+            
+            const selectedMonth = format(selectedDate, "yyyy-MM");
+            return bookingDates.some(date => date.substring(0, 7) === selectedMonth);
+          } catch (error) {
+            console.error('Error parsing booking_dates for month filter:', error);
+            return false;
+          }
         });
       }
 
-      // Fetch all users for enriching booking data
-      const users = await UserService.getAll();
-      const userMap = users.reduce((acc, user) => {
-        acc[user.id] = user;
-        return acc;
-      }, {} as Record<string, any>);
-      
-      // Enrich bookings with user data
+      // Since slotbooking table has user info directly, we don't need to fetch from users table
       const enrichedBookings = fetchedBookings.map(booking => {
-        const user = userMap[booking.user_id];
-        
-        // Calculate age if DOB is available
-        let age;
-        if (user && user.dob) {
-          const dob = new Date(user.dob);
-          const today = new Date();
-          age = today.getFullYear() - dob.getFullYear();
-          const monthDiff = today.getMonth() - dob.getMonth();
-          if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-            age--;
+        // Extract the first date from booking_dates array for sorting
+        let bookingDate = new Date();
+        if (booking.booking_dates) {
+          try {
+            const bookingDates = typeof booking.booking_dates === 'string' 
+              ? JSON.parse(booking.booking_dates) 
+              : booking.booking_dates;
+            if (Array.isArray(bookingDates) && bookingDates.length > 0) {
+              bookingDate = new Date(bookingDates[0]);
+            }
+          } catch (error) {
+            console.error('Error parsing booking_dates:', error);
           }
         }
         
         return {
           ...booking,
-          customerName: user ? user.name : "Unknown Customer",
-          email: user ? user.email : "unknown@example.com",
-          phone: user ? user.phone : "Unknown Phone",
-          age: age || "N/A"
+          customerName: booking.name || "Unknown Customer",
+          email: booking.email || "unknown@example.com",
+          phone: booking.phone || "Unknown Phone",
+          booking_date: bookingDate.toISOString().split('T')[0], // Add this for compatibility
+          age: "N/A" // Age info not available in slotbooking table
         };
       });
       
@@ -295,7 +302,7 @@ const ViewBookings = () => {
         booking.user_id,
         'email',
         'reminder',
-        `Reminder: You have a swimming analysis session scheduled for ${booking.booking_date} at ${booking.start_time}.`
+                        `Reminder: You have a swimming analysis session scheduled for ${formatBookingDate(booking, 'yyyy-MM-dd')} at ${booking.start_time}.`
       );
       
       toast({
@@ -429,7 +436,7 @@ const ViewBookings = () => {
                       <div className="text-sm text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 mt-1">
                         <span className="flex items-center">
                           <Calendar className="h-3 w-3 mr-1" />
-                          {format(new Date(booking.booking_date), "MMM dd, yyyy")}
+                          {formatBookingDatesRange(booking)}
                         </span>
                         <span className="flex items-center">
                           <Clock className="h-3 w-3 mr-1" />

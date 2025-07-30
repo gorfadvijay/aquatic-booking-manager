@@ -9,13 +9,32 @@ export const ReportService = {
       const formattedEndDate = format(endDate, 'yyyy-MM-dd');
       
       const { data, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .gte('booking_date', formattedStartDate)
-        .lte('booking_date', formattedEndDate);
+        .from('slotbooking')
+        .select('*');
         
       if (error) throw error;
-      return data || [];
+      
+      // Filter bookings by date range from booking_dates JSON array
+      const filteredData = data?.filter(booking => {
+        if (!booking.booking_dates) return false;
+        
+        try {
+          const bookingDates = typeof booking.booking_dates === 'string' 
+            ? JSON.parse(booking.booking_dates) 
+            : booking.booking_dates;
+            
+          if (!Array.isArray(bookingDates)) return false;
+          
+          return bookingDates.some(date => 
+            date >= formattedStartDate && date <= formattedEndDate
+          );
+        } catch (error) {
+          console.error('Error parsing booking_dates:', error);
+          return false;
+        }
+      }) || [];
+      
+      return filteredData;
     } catch (error) {
       console.error('Error getting bookings by date:', error);
       return [];
@@ -25,9 +44,9 @@ export const ReportService = {
   getBookingsByStatus: async (status: BookingStatus) => {
     try {
       const { data, error } = await supabase
-        .from('bookings')
+        .from('slotbooking')
         .select('*')
-        .eq('status', status);
+        .eq('payment_status', status);
         
       if (error) throw error;
       return data || [];

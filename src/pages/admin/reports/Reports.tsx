@@ -27,20 +27,23 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Calendar, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { format, subDays, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { getFirstBookingDate } from "@/lib/utils";
 
 const COLORS = ["#0284c7", "#ef4444", "#f59e0b", "#10b981"];
 
 const Reports = () => {
   const { toast } = useToast();
-  const [reportType, setReportType] = useState<"weekly" | "monthly" | "customer">("weekly");
+  const [reportType, setReportType] = useState<"weekly" | "monthly" | "yearly">("weekly");
   const [dateRange, setDateRange] = useState<"current" | "previous" | "last3">("current");
   const [bookingData, setBookingData] = useState<any[]>([]);
+  const [chartData, setChartData] = useState<any[]>([]);
   const [bookingStats, setBookingStats] = useState({
     totalBookings: 0,
+    totalRevenue: 0,
   });
   const [pieData, setPieData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,25 +64,57 @@ const Reports = () => {
       console.log(`Fetching bookings from ${startDateISO} to ${endDateISO}`);
       
       // Fetch bookings from Supabase directly
-      const { data: bookings, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .gte('booking_date', startDateISO.split('T')[0])
-        .lte('booking_date', endDateISO.split('T')[0]);
+      const { data: allBookings, error } = await supabase
+        .from('slotbooking')
+        .select('*');
       
       if (error) throw error;
       
-      console.log(`Fetched ${bookings?.length || 0} bookings`);
+      console.log(`Fetched ${allBookings?.length || 0} total bookings`);
+      
+      // Filter bookings by date range from booking_dates JSON array
+      const startDateStr = startDateISO.split('T')[0];
+      const endDateStr = endDateISO.split('T')[0];
+      
+      const bookings = allBookings?.filter(booking => {
+        if (!booking.booking_dates) return false;
+        
+        try {
+          const bookingDates = typeof booking.booking_dates === 'string' 
+            ? JSON.parse(booking.booking_dates) 
+            : booking.booking_dates;
+            
+          if (!Array.isArray(bookingDates)) return false;
+          
+          // Check if any booking date falls within the selected range
+          return bookingDates.some(date => 
+            date >= startDateStr && date <= endDateStr
+          );
+        } catch (error) {
+          console.error('Error parsing booking_dates:', error);
+          return false;
+        }
+      }) || [];
+      
+      console.log(`Filtered to ${bookings.length} bookings in date range`);
       
       // Transform the data for the charts
-      const transformedBookingData = transformBookingData(bookings || []);
+      const transformedBookingData = transformBookingData(bookings);
       
-      // Set the chart data
-      setBookingData(transformedBookingData);
+      // Set the raw bookings and chart data
+      setBookingData(bookings);
+      setChartData(transformedBookingData);
       
-      // Set booking stats - just get the total count
+      // Calculate stats
+      const totalRevenue = bookings?.reduce((sum, booking) => {
+        // Convert amount from smallest currency unit (paisa) to rupees
+        const amount = booking.amount ? booking.amount / 100 : 0;
+        return sum + amount;
+      }, 0) || 0;
+      
       setBookingStats({
         totalBookings: bookings?.length || 0,
+        totalRevenue: Math.round(totalRevenue),
       });
       
       // Count bookings by status
@@ -87,9 +122,9 @@ const Reports = () => {
       
       // Create pie chart data
       setPieData([
-        { name: "Completed", value: statusCounts.completed || 0 },
-        { name: "Cancelled", value: statusCounts.cancelled || 0 },
-        { name: "No-Show", value: statusCounts.noShow || 0 },
+        { name: "Successful", value: statusCounts.completed || 0 },
+        { name: "Failed", value: statusCounts.cancelled || 0 },
+        { name: "Refunded", value: statusCounts.noShow || 0 },
         { name: "Pending", value: statusCounts.pending || 0 },
       ]);
     } catch (error) {
@@ -99,15 +134,12 @@ const Reports = () => {
         description: "Please try again later",
         variant: "destructive",
       });
-      
-      // Set default mock data for development
-      setDefaultMockData();
     } finally {
       setLoading(false);
     }
   };
   
-  // Count bookings by status
+  // Count bookings by payment status
   const countBookingsByStatus = (bookings: any[]) => {
     const counts = {
       completed: 0,
@@ -117,10 +149,10 @@ const Reports = () => {
     };
     
     bookings.forEach(booking => {
-      if (booking.status === 'completed') counts.completed++;
-      else if (booking.status === 'cancelled') counts.cancelled++;
-      else if (booking.status === 'no-show') counts.noShow++;
-      else counts.pending++; // Default to pending if no status or unknown status
+      if (booking.payment_status === 'success') counts.completed++;
+      else if (booking.payment_status === 'failed') counts.cancelled++;
+      else if (booking.payment_status === 'refunded') counts.noShow++;
+      else counts.pending++; // Default to pending for unknown or pending payment status
     });
     
     return counts;
@@ -145,19 +177,56 @@ const Reports = () => {
         "Mon": 0, "Tue": 0, "Wed": 0, "Thu": 0, "Fri": 0, "Sat": 0, "Sun": 0
       };
       
-      // Count bookings by day
+      // Count bookings by day - count for every day the booking spans
       bookings.forEach(booking => {
-        const bookingDate = new Date(booking.booking_date);
+        try {
+          // Parse all booking dates from the JSON array
+          const bookingDates = typeof booking.booking_dates === 'string' 
+            ? JSON.parse(booking.booking_dates) 
+            : booking.booking_dates;
+            
+          if (Array.isArray(bookingDates)) {
+            // Track which days we've already counted for this booking
+            const countedDays = new Set();
+            
+            bookingDates.forEach(dateStr => {
+              const date = new Date(dateStr);
+              if (!isNaN(date.getTime())) {
+                const dayOfWeek = dayMap[date.getDay() as keyof typeof dayMap];
+                // Only count once per day per booking
+                if (dayOfWeek && !countedDays.has(dayOfWeek)) {
+                  dayCounts[dayOfWeek as keyof typeof dayCounts]++;
+                  countedDays.add(dayOfWeek);
+                }
+              }
+            });
+          } else {
+            // Fallback to first booking date if booking_dates is not an array
+            const bookingDate = getFirstBookingDate(booking);
+            if (bookingDate) {
+              const dayOfWeek = dayMap[bookingDate.getDay() as keyof typeof dayMap];
+              if (dayOfWeek) dayCounts[dayOfWeek as keyof typeof dayCounts]++;
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing booking dates for weekly chart:', error);
+          // Fallback to first booking date
+          const bookingDate = getFirstBookingDate(booking);
+          if (bookingDate) {
         const dayOfWeek = dayMap[bookingDate.getDay() as keyof typeof dayMap];
         if (dayOfWeek) dayCounts[dayOfWeek as keyof typeof dayCounts]++;
+          }
+        }
       });
       
-      // Convert to array format for chart
-      return Object.entries(dayCounts).map(([name, bookings]) => ({
+      // Convert to array format for chart - only show days with bookings
+      return Object.entries(dayCounts)
+        .filter(([name, bookings]) => bookings > 0)
+        .map(([name, bookings]) => ({
         name,
         bookings
       }));
-    } else {
+    } else if (reportType === "monthly") {
       // Group bookings by month
       const monthMap = {
         0: "Jan", 1: "Feb", 2: "Mar", 3: "Apr", 4: "May", 5: "Jun",
@@ -170,15 +239,105 @@ const Reports = () => {
         "Jul": 0, "Aug": 0, "Sep": 0, "Oct": 0, "Nov": 0, "Dec": 0
       };
       
-      // Count bookings by month
+      // Count bookings by month - count for every month the booking spans
       bookings.forEach(booking => {
-        const bookingDate = new Date(booking.booking_date);
+        try {
+          // Parse all booking dates from the JSON array
+          const bookingDates = typeof booking.booking_dates === 'string' 
+            ? JSON.parse(booking.booking_dates) 
+            : booking.booking_dates;
+            
+          if (Array.isArray(bookingDates)) {
+            // Track which months we've already counted for this booking
+            const countedMonths = new Set();
+            
+            bookingDates.forEach(dateStr => {
+              const date = new Date(dateStr);
+              if (!isNaN(date.getTime())) {
+                const month = monthMap[date.getMonth() as keyof typeof monthMap];
+                // Only count once per month per booking
+                if (month && !countedMonths.has(month)) {
+                  monthCounts[month as keyof typeof monthCounts]++;
+                  countedMonths.add(month);
+                }
+              }
+            });
+          } else {
+            // Fallback to first booking date if booking_dates is not an array
+            const bookingDate = getFirstBookingDate(booking);
+            if (bookingDate) {
+              const month = monthMap[bookingDate.getMonth() as keyof typeof monthMap];
+              if (month) monthCounts[month as keyof typeof monthCounts]++;
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing booking dates for monthly chart:', error);
+          // Fallback to first booking date
+          const bookingDate = getFirstBookingDate(booking);
+          if (bookingDate) {
         const month = monthMap[bookingDate.getMonth() as keyof typeof monthMap];
         if (month) monthCounts[month as keyof typeof monthCounts]++;
+          }
+        }
       });
       
-      // Convert to array format for chart
-      return Object.entries(monthCounts).map(([name, bookings]) => ({
+      // Convert to array format for chart - only show months with bookings
+      return Object.entries(monthCounts)
+        .filter(([name, bookings]) => bookings > 0)
+        .map(([name, bookings]) => ({
+          name,
+          bookings
+        }));
+    } else {
+      // Group bookings by year
+      const yearCounts: { [key: string]: number } = {};
+      
+      // Count bookings by year - count for every year the booking spans
+      bookings.forEach(booking => {
+        try {
+          // Parse all booking dates from the JSON array
+          const bookingDates = typeof booking.booking_dates === 'string' 
+            ? JSON.parse(booking.booking_dates) 
+            : booking.booking_dates;
+            
+          if (Array.isArray(bookingDates)) {
+            // Track which years we've already counted for this booking
+            const countedYears = new Set();
+            
+            bookingDates.forEach(dateStr => {
+              const date = new Date(dateStr);
+              if (!isNaN(date.getTime())) {
+                const year = date.getFullYear().toString();
+                // Only count once per year per booking
+                if (!countedYears.has(year)) {
+                  yearCounts[year] = (yearCounts[year] || 0) + 1;
+                  countedYears.add(year);
+                }
+              }
+            });
+          } else {
+            // Fallback to first booking date if booking_dates is not an array
+            const bookingDate = getFirstBookingDate(booking);
+            if (bookingDate) {
+              const year = bookingDate.getFullYear().toString();
+              yearCounts[year] = (yearCounts[year] || 0) + 1;
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing booking dates for yearly chart:', error);
+          // Fallback to first booking date
+          const bookingDate = getFirstBookingDate(booking);
+          if (bookingDate) {
+            const year = bookingDate.getFullYear().toString();
+            yearCounts[year] = (yearCounts[year] || 0) + 1;
+          }
+        }
+      });
+      
+      // Convert to array format for chart and sort by year
+      return Object.entries(yearCounts)
+        .sort(([a], [b]) => parseInt(a) - parseInt(b))
+        .map(([name, bookings]) => ({
         name,
         bookings
       }));
@@ -201,7 +360,7 @@ const Reports = () => {
         startDate = startOfWeek(subDays(today, 21));
         endDate = endOfWeek(today);
       }
-    } else { // monthly
+    } else if (reportType === "monthly") {
       if (dateRange === "current") {
         startDate = startOfMonth(today);
         endDate = endOfMonth(today);
@@ -212,24 +371,23 @@ const Reports = () => {
         startDate = startOfMonth(subMonths(today, 2));
         endDate = endOfMonth(today);
       }
+    } else { // yearly
+      if (dateRange === "current") {
+        startDate = new Date(today.getFullYear(), 0, 1); // January 1st of current year
+        endDate = new Date(today.getFullYear(), 11, 31); // December 31st of current year
+      } else if (dateRange === "previous") {
+        startDate = new Date(today.getFullYear() - 1, 0, 1);
+        endDate = new Date(today.getFullYear() - 1, 11, 31);
+      } else { // last3
+        startDate = new Date(today.getFullYear() - 2, 0, 1);
+        endDate = new Date(today.getFullYear(), 11, 31);
+      }
     }
     
     return { startDate, endDate };
   };
 
-  // Set default mock data for development
-  const setDefaultMockData = () => {
-    setBookingData(reportType === "weekly" ? weeklyData : monthlyData);
-    setBookingStats({
-      totalBookings: reportType === "weekly" ? 126 : 1372,
-    });
-    setPieData([
-      { name: "Completed", value: 72 },
-      { name: "Cancelled", value: 12 },
-      { name: "No-Show", value: 6 },
-      { name: "Pending", value: 10 },
-    ]);
-  };
+
 
   const handleExport = () => {
     toast({
@@ -238,33 +396,9 @@ const Reports = () => {
     });
   };
 
-  // Mock data for charts
-  const weeklyData = [
-    { name: "Mon", bookings: 12 },
-    { name: "Tue", bookings: 15 },
-    { name: "Wed", bookings: 18 },
-    { name: "Thu", bookings: 14 },
-    { name: "Fri", bookings: 20 },
-    { name: "Sat", bookings: 25 },
-    { name: "Sun", bookings: 22 },
-  ];
 
-  const monthlyData = [
-    { name: "Jan", bookings: 85 },
-    { name: "Feb", bookings: 90 },
-    { name: "Mar", bookings: 110 },
-    { name: "Apr", bookings: 120 },
-    { name: "May", bookings: 126 },
-    { name: "Jun", bookings: 135 },
-    { name: "Jul", bookings: 145 },
-    { name: "Aug", bookings: 150 },
-    { name: "Sep", bookings: 140 },
-    { name: "Oct", bookings: 130 },
-    { name: "Nov", bookings: 120 },
-    { name: "Dec", bookings: 115 },
-  ];
 
-  const chartData = loading ? [] : bookingData;
+
 
   return (
     <div className="p-6">
@@ -279,7 +413,7 @@ const Reports = () => {
         <div className="flex flex-wrap gap-3">
           <Select
             value={reportType}
-            onValueChange={(value: "weekly" | "monthly" | "customer") => setReportType(value)}
+            onValueChange={(value: "weekly" | "monthly" | "yearly") => setReportType(value)}
           >
             <SelectTrigger className="w-[130px]">
               <SelectValue placeholder="Report Type" />
@@ -287,7 +421,7 @@ const Reports = () => {
             <SelectContent>
               <SelectItem value="weekly">Weekly</SelectItem>
               <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="customer">Customer Analysis</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
             </SelectContent>
           </Select>
 
@@ -312,7 +446,7 @@ const Reports = () => {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-1 mb-6">
+      <div className="grid gap-6 md:grid-cols-2 mb-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -323,12 +457,24 @@ const Reports = () => {
             <div className="text-3xl font-bold">
               {loading ? "..." : bookingStats.totalBookings}
             </div>
-          
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Total Revenue
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">
+              {loading ? "..." : `₹${bookingStats.totalRevenue.toLocaleString()}`}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {reportType !== "customer" ? (
+
         <div className="grid gap-6 md:grid-cols-3">
           {/* Booking Chart */}
           <Card className="col-span-2">
@@ -337,13 +483,22 @@ const Reports = () => {
               <CardDescription>
                 {reportType === "weekly"
                   ? "Daily bookings for the current week"
-                  : "Monthly bookings for the year"}
+                  : reportType === "monthly" 
+                    ? "Monthly bookings for the year"
+                    : "Yearly booking trends"}
               </CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
               {loading ? (
                 <div className="h-full flex items-center justify-center text-muted-foreground">
                   Loading chart data...
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <div className="text-center">
+                    <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No booking data available for the selected period</p>
+                  </div>
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -368,187 +523,12 @@ const Reports = () => {
             </CardContent>
           </Card>
 
-          {/* Booking Status Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Booking Status Distribution</CardTitle>
-              <CardDescription>
-                Summary of booking outcomes
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              {loading ? (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  Loading chart data...
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) =>
-                        `${name}: ${(percent * 100).toFixed(0)}%`
-                      }
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
+         
         </div>
-      ) : (
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Demographics</CardTitle>
-              <CardDescription>
-                Analysis of customer age groups and preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={[
-                    { age: "18-24", count: 42, rate: 82 },
-                    { age: "25-34", count: 68, rate: 86 },
-                    { age: "35-44", count: 35, rate: 90 },
-                    { age: "45-54", count: 22, rate: 94 },
-                    { age: "55+", count: 15, rate: 78 },
-                  ]}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="age" />
-                  <YAxis yAxisId="left" orientation="left" stroke="#0284c7" />
-                  <YAxis yAxisId="right" orientation="right" stroke="#10b981" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar yAxisId="left" dataKey="count" name="Number of Customers" fill="#0284c7" />
-                  <Bar yAxisId="right" dataKey="rate" name="Return Rate (%)" fill="#10b981" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Customer Loyalty</CardTitle>
-              <CardDescription>
-                Repeat booking statistics
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: "One-time", value: 45 },
-                      { name: "2-4 bookings", value: 30 },
-                      { name: "5-10 bookings", value: 15 },
-                      { name: "10+ bookings", value: 10 },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) =>
-                      `${name}: ${(percent * 100).toFixed(0)}%`
-                    }
-                  >
-                    {[
-                      "#0284c7",
-                      "#10b981",
-                      "#eab308",
-                      "#f97316",
-                    ].map((color, index) => (
-                      <Cell key={`cell-${index}`} fill={color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Top Customers</CardTitle>
-              <CardDescription>
-                Customers with the most bookings
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border">
-                <table className="min-w-full divide-y divide-border">
-                  <thead>
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Customer
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Total Bookings
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Last Booking
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-border">
-                    {[
-                      { name: "John Smith", email: "john@example.com", bookings: 12, last: "2025-05-14", status: "Active" },
-                      { name: "Emma Wilson", email: "emma@example.com", bookings: 8, last: "2025-05-12", status: "Active" },
-                      { name: "Michael Brown", email: "michael@example.com", bookings: 7, last: "2025-05-10", status: "Active" },
-                      { name: "Sarah Johnson", email: "sarah@example.com", bookings: 6, last: "2025-04-28", status: "Inactive" },
-                      { name: "David Lee", email: "david@example.com", bookings: 5, last: "2025-04-15", status: "Inactive" },
-                    ].map((customer, index) => (
-                      <tr key={index}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-medium">{customer.name}</div>
-                          <div className="text-sm text-muted-foreground">{customer.email}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {customer.bookings}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          {customer.last}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            customer.status === "Active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                          }`}>
-                            {customer.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>{reportType === "weekly" ? "Weekly" : reportType === "monthly" ? "Monthly" : "Customer Analysis"} Report Details</CardTitle>
+          <CardTitle>{reportType === "weekly" ? "Weekly" : reportType === "monthly" ? "Monthly" : "Yearly"} Report Details</CardTitle>
           <CardDescription>
             Comprehensive breakdown of all bookings
           </CardDescription>

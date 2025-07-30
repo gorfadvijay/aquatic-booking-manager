@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Calendar, Users } from "lucide-react";
 import { Slot, Booking } from "@/types/schema";
+import { formatBookingDatesRange } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { SlotService } from "@/lib/services/slot.service";
@@ -397,7 +398,7 @@ const EditSlots = () => {
                   <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> 
-                      {booking.booking_date ? String(booking.booking_date) : ""}
+                      {formatBookingDatesRange(booking)}
                     </span>
                     <span>{booking.email || "No email"}</span>
                     <span>{booking.phone || "No phone"}</span>
