@@ -221,6 +221,7 @@ const CampRegistration = () => {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Phone Number</TableHead>
                       <TableHead>Camp</TableHead>
                       <TableHead>Batch</TableHead>
                       <TableHead>Amount</TableHead>
@@ -232,9 +233,9 @@ const CampRegistration = () => {
                   <TableBody>
                     {filteredBookings.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-4">
+                                                <TableCell colSpan={9} className="text-center py-4">
                           No camp registrations found.
-                        </TableCell>
+</TableCell>
                       </TableRow>
                     ) : (
                       filteredBookings.map((booking) => (
@@ -243,6 +244,7 @@ const CampRegistration = () => {
                             {booking.name}
                           </TableCell>
                           <TableCell>{booking.email}</TableCell>
+                          <TableCell>{booking.phone_number || '-'}</TableCell>
                           <TableCell>{booking.camp}</TableCell>
                           <TableCell>{booking.batch}</TableCell>
                           <TableCell>{formatCurrency(booking.amount / 100)}</TableCell>

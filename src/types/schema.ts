@@ -101,6 +101,7 @@ export type CampBooking = {
   id: UUID;
   name: string;
   email: string;
+  phone_number: string | null;
   batch: string;
   camp: string;
   amount: number;
