@@ -439,10 +439,7 @@ const Reports = () => {
             </SelectContent>
           </Select>
 
-          <Button onClick={handleExport} className="gap-2" variant="outline">
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </Button>
+          
         </div>
       </div>
 
@@ -566,12 +563,7 @@ const Reports = () => {
                   </tbody>
                 </table>
               </div>
-              <div className="mt-4 flex justify-end">
-                <Button variant="outline" className="gap-2" onClick={handleExport}>
-                  <FileText className="h-4 w-4" />
-                  <span>Export Full Report</span>
-                </Button>
-              </div>
+           
             </>
           )}
         </CardContent>
