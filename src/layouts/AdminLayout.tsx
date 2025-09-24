@@ -32,6 +32,11 @@ const AdminLayout = () => {
       path: "/admin",
     },
     {
+      title: "Users",
+      icon: <Users className="h-5 w-5" />,
+      path: "/admin/users",
+    },
+    {
       title: "Bookings",
       icon: <Calendar className="h-5 w-5" />,
       path: "/admin/bookings",

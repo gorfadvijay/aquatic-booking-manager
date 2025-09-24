@@ -11,6 +11,7 @@ import CustomerLayout from "./layouts/CustomerLayout";
 
 // Admin Pages
 import AdminDashboard from "./pages/admin/Dashboard";
+import Users from "./pages/admin/users/Users";
 import SlotManagement from "./pages/admin/slots/SlotManagement";
 import CreateSlots from "./pages/admin/slots/CreateSlots";
 import EditSlots from "./pages/admin/slots/EditSlots";
@@ -62,6 +63,7 @@ const App = () => (
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<Users />} />
             <Route path="slots" element={<SlotManagement />} />
             <Route path="slots/create" element={<CreateSlots />} />
             <Route path="slots/edit/:id" element={<EditSlots />} />
